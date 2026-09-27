@@ -1,0 +1,31 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE files
+.idea/
+.vscode/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# ==================================================
+# PERSONAL / PRIVATE DATA
+# ==================================================
+
+# Face recognition training data
+data/faces/
+
+# Trained face recognition model
+data/face_model.yml
+
+# Personal profile images
+data/profiles/
+
+# Local runtime/user data
+data/user_data/
