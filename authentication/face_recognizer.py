@@ -17,8 +17,31 @@ class FaceRecognizer:
         self.recognizer = cv2.face.LBPHFaceRecognizer_create()
 
         self.names = {}
-
         self.is_trained = False
+
+        self.face_size = (200, 200)
+
+    def preprocess_face(self, face):
+
+        if face is None or face.size == 0:
+            return None
+
+        if len(face.shape) == 3:
+            gray = cv2.cvtColor(
+                face,
+                cv2.COLOR_BGR2GRAY
+            )
+        else:
+            gray = face
+
+        gray = cv2.resize(
+            gray,
+            self.face_size
+        )
+
+        gray = cv2.equalizeHist(gray)
+
+        return gray
 
     def prepare_training_data(self):
 
@@ -30,19 +53,27 @@ class FaceRecognizer:
         if not os.path.exists(self.faces_path):
             os.makedirs(self.faces_path)
 
-        for person_name in os.listdir(self.faces_path):
+        # IMPORTANT:
+        # Always use the same sorted order.
+        person_names = sorted(
+            name for name in os.listdir(self.faces_path)
+            if os.path.isdir(
+                os.path.join(self.faces_path, name)
+            )
+        )
+
+        for person_name in person_names:
 
             person_path = os.path.join(
                 self.faces_path,
                 person_name
             )
 
-            if not os.path.isdir(person_path):
-                continue
-
             self.names[label_id] = person_name
 
-            for image_name in os.listdir(person_path):
+            for image_name in sorted(
+                os.listdir(person_path)
+            ):
 
                 image_path = os.path.join(
                     person_path,
@@ -53,6 +84,11 @@ class FaceRecognizer:
                     image_path,
                     cv2.IMREAD_GRAYSCALE
                 )
+
+                if image is None:
+                    continue
+
+                image = self.preprocess_face(image)
 
                 if image is None:
                     continue
@@ -71,12 +107,21 @@ class FaceRecognizer:
         if len(faces) == 0:
 
             print("No training images found.")
+            return False
 
+        if len(self.names) == 0:
+
+            print("No registered users found.")
             return False
 
         self.recognizer.train(
             faces,
             labels
+        )
+
+        os.makedirs(
+            os.path.dirname(self.model_path),
+            exist_ok=True
         )
 
         self.recognizer.write(
@@ -86,6 +131,7 @@ class FaceRecognizer:
         self.is_trained = True
 
         print("Face recognition model trained.")
+        print(f"Registered users: {list(self.names.values())}")
         print(f"Model saved to: {self.model_path}")
 
         return True
@@ -95,28 +141,31 @@ class FaceRecognizer:
         if not os.path.exists(self.model_path):
 
             print("No trained face model found.")
-
             return False
 
-        # Rebuild the name mapping
+        if not os.path.exists(self.faces_path):
+
+            print("Face data directory not found.")
+            return False
+
         self.names = {}
 
-        label_id = 0
-
-        for person_name in sorted(
-            os.listdir(self.faces_path)
-        ):
-
-            person_path = os.path.join(
-                self.faces_path,
-                person_name
+        # MUST match the training order exactly.
+        person_names = sorted(
+            name for name in os.listdir(self.faces_path)
+            if os.path.isdir(
+                os.path.join(self.faces_path, name)
             )
+        )
 
-            if os.path.isdir(person_path):
+        for label_id, person_name in enumerate(person_names):
 
-                self.names[label_id] = person_name
+            self.names[label_id] = person_name
 
-                label_id += 1
+        if not self.names:
+
+            print("No registered users found.")
+            return False
 
         self.recognizer.read(
             self.model_path
@@ -125,6 +174,7 @@ class FaceRecognizer:
         self.is_trained = True
 
         print("Face recognition model loaded.")
+        print(f"Registered users: {list(self.names.values())}")
 
         return True
 
@@ -134,8 +184,14 @@ class FaceRecognizer:
 
             return None, None
 
+        processed_face = self.preprocess_face(face)
+
+        if processed_face is None:
+
+            return "Unknown", 999.0
+
         label, confidence = self.recognizer.predict(
-            face
+            processed_face
         )
 
         name = self.names.get(

@@ -13,6 +13,14 @@ from authentication.face_detector import FaceDetector
 from authentication.face_recognizer import FaceRecognizer
 
 
+# Lower LBPH distance = better match.
+# This is a starting threshold and can be calibrated later.
+RECOGNITION_THRESHOLD = 60
+
+# Number of consecutive successful frames required.
+REQUIRED_MATCHES = 8
+
+
 class LockScreen(QWidget):
 
     authenticated_signal = pyqtSignal(str)
@@ -37,8 +45,15 @@ class LockScreen(QWidget):
 
             return
 
+        # ---------------------------------
+        # AUTHENTICATION STATE
+        # ---------------------------------
+
         self.authenticated = False
         self.authenticated_user = None
+
+        self.matched_name = None
+        self.match_count = 0
 
         self.setup_ui()
 
@@ -195,6 +210,11 @@ class LockScreen(QWidget):
             }
         """)
 
+    def reset_authentication(self):
+
+        self.matched_name = None
+        self.match_count = 0
+
     def process_camera(self):
 
         if self.authenticated:
@@ -211,9 +231,11 @@ class LockScreen(QWidget):
 
         faces = self.face_detector.detect(frame)
 
-        # Draw detected faces on preview
-
         display_frame = frame.copy()
+
+        # ---------------------------------
+        # DRAW DETECTED FACES
+        # ---------------------------------
 
         for (x, y, w, h) in faces:
 
@@ -277,6 +299,8 @@ class LockScreen(QWidget):
 
         if len(faces) == 0:
 
+            self.reset_authentication()
+
             self.status.setText(
                 "🔒  SYSTEM LOCKED"
             )
@@ -292,6 +316,8 @@ class LockScreen(QWidget):
         # ---------------------------------
 
         if len(faces) > 1:
+
+            self.reset_authentication()
 
             self.status.setText(
                 "⚠️  MULTIPLE FACES DETECTED"
@@ -315,51 +341,98 @@ class LockScreen(QWidget):
         ]
 
         if face.size == 0:
+
+            self.reset_authentication()
+
             return
 
-        gray_face = cv2.cvtColor(
-            face,
-            cv2.COLOR_BGR2GRAY
-        )
+        # ---------------------------------
+        # FACE RECOGNITION
+        # ---------------------------------
 
         name, confidence = (
             self.face_recognizer.predict(
-                gray_face
+                face
             )
         )
 
-        self.status.setText(
-            "🔍  AUTHENTICATING..."
-        )
+        # ---------------------------------
+        # UNKNOWN / FAILED MATCH
+        # ---------------------------------
 
-        self.instruction.setText(
-            f"Face confidence: {confidence:.2f}"
-        )
+        if (
+            name == "Unknown"
+            or confidence >= RECOGNITION_THRESHOLD
+        ):
+
+            self.reset_authentication()
+
+            self.status.setText(
+                "🔒  ACCESS DENIED"
+            )
+
+            self.instruction.setText(
+                f"Unknown face • Distance: {confidence:.2f}"
+            )
+
+            return
+
+        # ---------------------------------
+        # SUCCESSFUL MATCH
+        # ---------------------------------
+
+        if self.matched_name == name:
+
+            self.match_count += 1
+
+        else:
+
+            self.matched_name = name
+            self.match_count = 1
+
+        # ---------------------------------
+        # MULTI-FRAME VERIFICATION
+        # ---------------------------------
+
+        if self.match_count < REQUIRED_MATCHES:
+
+            self.status.setText(
+                "🔍  AUTHENTICATING..."
+            )
+
+            self.instruction.setText(
+                f"Verifying {name} • "
+                f"{self.match_count}/{REQUIRED_MATCHES}"
+            )
+
+            return
 
         # ---------------------------------
         # AUTHENTICATION SUCCESS
         # ---------------------------------
 
-        if confidence < 70:
+        self.authenticated = True
+        self.authenticated_user = name
 
-            self.authenticated = True
+        self.status.setText(
+            "🔓  ACCESS GRANTED"
+        )
 
-            self.authenticated_user = name
+        self.instruction.setText(
+            f"Welcome, {name}"
+        )
 
-            self.status.setText(
-                "🔓  ACCESS GRANTED"
-            )
-
-            self.instruction.setText(
-                f"Welcome, {name}"
-            )
-
-            QTimer.singleShot(
-                1000,
-                self.authentication_success
-            )
+        # Give the user a short visual confirmation
+        # before opening the dashboard.
+        QTimer.singleShot(
+            1000,
+            self.authentication_success
+        )
 
     def authentication_success(self):
+
+        if not self.authenticated:
+            return
 
         self.timer.stop()
 
@@ -377,6 +450,7 @@ class LockScreen(QWidget):
 
             if self.isFullScreen():
                 self.showNormal()
+
             else:
                 self.showFullScreen()
 
@@ -386,6 +460,7 @@ class LockScreen(QWidget):
                 self.showNormal()
 
         else:
+
             super().keyPressEvent(event)
 
     def closeEvent(self, event):

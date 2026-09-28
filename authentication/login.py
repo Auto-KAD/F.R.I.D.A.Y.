@@ -5,6 +5,14 @@ from authentication.face_detector import FaceDetector
 from authentication.face_recognizer import FaceRecognizer
 
 
+# Lower LBPH distance = better match.
+# Start conservatively and adjust after testing.
+RECOGNITION_THRESHOLD = 60
+
+# Number of consecutive successful frames required.
+REQUIRED_MATCHES = 8
+
+
 def main():
 
     print("=" * 50)
@@ -19,7 +27,9 @@ def main():
     print("Loading face recognition model...")
 
     if not recognizer.load():
+
         print("Could not load face recognition model.")
+
         camera.release()
         return
 
@@ -28,63 +38,123 @@ def main():
     print("Press Q to quit.")
     print()
 
+    matched_name = None
+    match_count = 0
+
     while True:
 
         frame = camera.read()
 
         if frame is None:
+
             print("ERROR: Could not read camera frame.")
             break
 
         faces = detector.detect(frame)
 
+        # -----------------------------------------
+        # NO FACE
+        # -----------------------------------------
+
         if len(faces) == 0:
+
+            match_count = 0
+            matched_name = None
+
+            label = "FRIDAY LOCKED"
+            text_color = (0, 0, 255)
 
             cv2.putText(
                 frame,
-                "FRIDAY LOCKED",
+                label,
                 (30, 50),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
-                (0, 0, 255),
+                text_color,
                 2
             )
+
+        # -----------------------------------------
+        # MULTIPLE FACES
+        # -----------------------------------------
 
         elif len(faces) > 1:
 
+            match_count = 0
+            matched_name = None
+
+            label = "ONLY ONE USER ALLOWED"
+            text_color = (0, 0, 255)
+
             cv2.putText(
                 frame,
-                "ONLY ONE USER ALLOWED",
+                label,
                 (30, 50),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,
-                (0, 0, 255),
+                text_color,
                 2
             )
+
+        # -----------------------------------------
+        # EXACTLY ONE FACE
+        # -----------------------------------------
 
         else:
 
             x, y, w, h = faces[0]
 
-            face = frame[y:y + h, x:x + w]
-
-            gray_face = cv2.cvtColor(
-                face,
-                cv2.COLOR_BGR2GRAY
-            )
+            face = frame[
+                y:y + h,
+                x:x + w
+            ]
 
             name, confidence = recognizer.predict(
-                gray_face
+                face
             )
 
-            # LBPH confidence:
-            # lower = better match
-            if confidence < 70:
+            is_match = (
+                name != "Unknown"
+                and confidence < RECOGNITION_THRESHOLD
+            )
 
-                label = f"ACCESS GRANTED: {name}"
-                text_color = (0, 255, 0)
+            # -------------------------------------
+            # SUCCESSFUL MATCH
+            # -------------------------------------
+
+            if is_match:
+
+                if matched_name == name:
+
+                    match_count += 1
+
+                else:
+
+                    matched_name = name
+                    match_count = 1
+
+                if match_count >= REQUIRED_MATCHES:
+
+                    label = f"ACCESS GRANTED: {name}"
+                    text_color = (0, 255, 0)
+
+                else:
+
+                    label = (
+                        f"VERIFYING {name}: "
+                        f"{match_count}/{REQUIRED_MATCHES}"
+                    )
+
+                    text_color = (0, 255, 255)
+
+            # -------------------------------------
+            # FAILED MATCH
+            # -------------------------------------
 
             else:
+
+                matched_name = None
+                match_count = 0
 
                 label = "ACCESS DENIED: UNKNOWN"
                 text_color = (0, 0, 255)
@@ -100,7 +170,7 @@ def main():
             cv2.putText(
                 frame,
                 label,
-                (x, y - 10),
+                (x, max(y - 10, 30)),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 text_color,
@@ -109,7 +179,7 @@ def main():
 
             cv2.putText(
                 frame,
-                f"Confidence: {confidence:.2f}",
+                f"Distance: {confidence:.2f}",
                 (x, y + h + 25),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.6,
