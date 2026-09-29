@@ -8,3 +8,5 @@ pyautogui
 pyttsx3
 SpeechRecognition
 PyAudio
+google-genai
+python-dotenv

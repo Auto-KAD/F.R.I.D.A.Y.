@@ -1,5 +1,6 @@
 import sys
 
+# pyrefly: ignore [missing-import]
 from PyQt6.QtWidgets import QApplication
 
 from dashboard.lock_screen import LockScreen
