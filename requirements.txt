@@ -10,3 +10,4 @@ SpeechRecognition
 PyAudio
 google-genai
 python-dotenv
+pygame>=2.5.0

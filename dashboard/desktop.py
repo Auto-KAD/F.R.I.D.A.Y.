@@ -24,6 +24,7 @@ from dashboard.calendar import Calendar
 from dashboard.chatbot import ChatbotPanel
 from dashboard.jarvis import JarvisPanel
 from dashboard.notes import NotesPanel
+from dashboard.musical_instruments import MusicalInstrumentsPanel
 from vision.desktop_gesture_worker import DesktopGestureWorker
 
 
@@ -211,6 +212,7 @@ class Desktop(QWidget):
         self.media_controller = None
         self.tools = None
         self.calendar = None
+        self.musical_instruments = None
 
         # ==================================================
         # CHATBOT
@@ -261,7 +263,7 @@ class Desktop(QWidget):
         for icon, name, callback in [
             ("⌂", "Home", self.show_idle), ("◎", "Vision Studio", self.open_vision_studio),
             ("♧", "Gesture Lab", self.open_gesture_lab), ("♫", "Media", self.open_media_controller),
-            ("♫", "Musiccal Instruments", self.open_media_controller),
+            ("♫", "Musical Instruments", self.open_musical_instruments),
             ("▦", "Calendar", self.open_calendar), ("✧", "Tools", self.open_tools),
             ("⚙", "System", self.open_system_panel),
             ("▤", "Notes", self.open_notes), ("◇", "JARVIS", self.open_jarvis)]:
@@ -471,12 +473,26 @@ class Desktop(QWidget):
 
         page.setMinimumSize(0, 0)
         page.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        is_vision_page = page is self.vision_studio
-        if is_vision_page:
+
+        # Intelligently manage camera feed between tools
+        is_camera_page = (page is self.vision_studio or (hasattr(self, "musical_instruments") and page is self.musical_instruments))
+
+        # Stop previous camera consumers if navigating away
+        if hasattr(self, "musical_instruments") and self.musical_instruments is not None and page is not self.musical_instruments:
+            self.musical_instruments.stop_camera()
+        if self.vision_studio is not None and page is not self.vision_studio:
+            self.vision_studio.stop_camera()
+
+        if is_camera_page:
             self.stop_gesture_control()
+
         self.workspace_stack.setCurrentWidget(page)
         page.show()
-        if not is_vision_page:
+
+        if is_camera_page and hasattr(page, "start_camera"):
+            page.start_camera()
+
+        if not is_camera_page:
             self.start_gesture_control()
         self._set_active_navigation(navigation_name)
 
@@ -781,6 +797,11 @@ class Desktop(QWidget):
             self.media_controller = MediaController()
         self._show_workspace_page(self.media_controller, "Media")
 
+    def open_musical_instruments(self):
+        if not hasattr(self, "musical_instruments") or self.musical_instruments is None:
+            self.musical_instruments = MusicalInstrumentsPanel()
+        self._show_workspace_page(self.musical_instruments, "Musical Instruments")
+
     def open_tools(self):
 
         if self.tools is None:
@@ -932,5 +953,9 @@ class Desktop(QWidget):
         if self.chatbot:
 
             self.chatbot.close()
+
+        if hasattr(self, "musical_instruments") and self.musical_instruments is not None:
+            self.musical_instruments.stop_camera()
+            self.musical_instruments.close()
 
         event.accept()
