@@ -657,6 +657,9 @@ class Desktop(QWidget):
 
         if self.chatbot:
 
+            if hasattr(self.chatbot, "stop_all"):
+                self.chatbot.stop_all()
+
             self.chatbot.hide()
 
     # ======================================================
