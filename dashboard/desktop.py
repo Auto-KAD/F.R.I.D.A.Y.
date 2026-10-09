@@ -1,5 +1,6 @@
 import os
 import psutil
+import pyautogui
 
 from PyQt6.QtCore import Qt, QTimer, QTime
 from PyQt6.QtGui import QFont, QPixmap, QPainter, QPainterPath, QImage
@@ -819,10 +820,61 @@ class Desktop(QWidget):
             self.close_active_application()
 
         elif gesture == "THUMBS_UP":
+            self.activate_thumbs_up_command()
+
+        elif gesture == "TWO_THUMBS_UP":
+            self.take_screenshot()
+
+    def activate_thumbs_up_command(self):
+        phrase = "Hey Awesome!, Ready to shine? 1 2 3 Go!!!"
+
+        if self.gesture_status_label is not None:
+            self.gesture_status_label.setText(
+                "GESTURE CONTROL • TYPING MESSAGE"
+            )
+
+        try:
+            pyautogui.write(phrase, interval=0.06)
+            self.open_media_controller()
+
             if self.gesture_status_label is not None:
                 self.gesture_status_label.setText(
-                    "GESTURE CONTROL • CONFIRMED ✓"
+                    "GESTURE CONTROL • MESSAGE TYPED ✓"
                 )
+        except Exception as error:
+            if self.gesture_status_label is not None:
+                self.gesture_status_label.setText(
+                    "GESTURE CONTROL • ACTION FAILED"
+                )
+            print("FRIDAY thumbs-up action error:", error)
+
+    def take_screenshot(self):
+        from datetime import datetime
+
+        screenshot_directory = os.path.join("data", "screenshots")
+        os.makedirs(screenshot_directory, exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        screenshot_path = os.path.join(
+            screenshot_directory,
+            f"FRIDAY_{timestamp}.png"
+        )
+
+        try:
+            pyautogui.screenshot().save(screenshot_path)
+
+            if self.gesture_status_label is not None:
+                self.gesture_status_label.setText(
+                    "GESTURE CONTROL • SCREENSHOT SAVED ✓"
+                )
+
+            print("FRIDAY screenshot saved:", screenshot_path)
+        except Exception as error:
+            if self.gesture_status_label is not None:
+                self.gesture_status_label.setText(
+                    "GESTURE CONTROL • SCREENSHOT FAILED"
+                )
+            print("FRIDAY screenshot error:", error)
 
     def update_camera_preview(self, frame):
 

@@ -1,7 +1,6 @@
 import time
 
 import cv2
-
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from vision.camera import Camera
@@ -23,7 +22,6 @@ class DesktopGestureWorker(QThread):
         super().__init__()
 
         self.running = True
-
         self.camera = None
         self.tracker = None
         self.finger_detector = None
@@ -31,6 +29,7 @@ class DesktopGestureWorker(QThread):
         self.gesture_stabilizer = None
         self.gesture_actions = None
 
+        self.two_thumbs_streak = 0
         self.last_emitted_gesture = "UNKNOWN"
 
     def run(self):
@@ -45,38 +44,69 @@ class DesktopGestureWorker(QThread):
             self.gesture_actions = GestureActionController()
 
             while self.running:
-
                 frame = self.camera.read()
-
                 if frame is None:
+                    time.sleep(0.005)
                     continue
 
                 result = self.tracker.process(frame)
-
                 preview_frame = self.tracker.draw_landmarks(
                     frame.copy(),
                     result
                 )
 
-                if result.hand_landmarks:
+                hand_landmarks_list = result.hand_landmarks or []
+                hand_gestures = []
 
-                    hand_landmarks = result.hand_landmarks[0]
-
+                for hand_landmarks in hand_landmarks_list:
                     fingers = self.finger_detector.detect_fingers(
                         hand_landmarks
                     )
-
-                    raw_gesture = self.gesture_classifier.classify(
-                        fingers,
-                        hand_landmarks
+                    hand_gestures.append(
+                        self.gesture_classifier.classify(
+                            fingers,
+                            hand_landmarks
+                        )
                     )
+
+                both_thumbs_up = (
+                    len(hand_gestures) >= 2
+                    and hand_gestures[0] == "THUMBS_UP"
+                    and hand_gestures[1] == "THUMBS_UP"
+                )
+
+                if both_thumbs_up:
+                    self.two_thumbs_streak += 1
+                    self.gesture_stabilizer.reset()
+                    self.gesture_actions.reset()
+
+                    if (
+                        self.two_thumbs_streak >= 6
+                        and self.last_emitted_gesture != "TWO_THUMBS_UP"
+                    ):
+                        self.last_emitted_gesture = "TWO_THUMBS_UP"
+                        self.gesture_detected.emit("TWO_THUMBS_UP")
+
+                    cv2.putText(
+                        preview_frame,
+                        "TWO THUMBS UP - SCREENSHOT",
+                        (20, 40),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (0, 255, 0),
+                        2
+                    )
+
+                elif hand_landmarks_list:
+                    self.two_thumbs_streak = 0
+                    hand_landmarks = hand_landmarks_list[0]
+                    raw_gesture = hand_gestures[0]
 
                     confirmed_gesture = self.gesture_stabilizer.update(
                         raw_gesture
                     )
 
                     index_tip = hand_landmarks[8]
-
                     self.gesture_actions.execute(
                         confirmed_gesture,
                         index_tip
@@ -87,13 +117,9 @@ class DesktopGestureWorker(QThread):
                         and confirmed_gesture != self.last_emitted_gesture
                     ):
                         self.last_emitted_gesture = confirmed_gesture
-
-                        self.gesture_detected.emit(
-                            confirmed_gesture
-                        )
+                        self.gesture_detected.emit(confirmed_gesture)
 
                     height, width, _ = preview_frame.shape
-
                     index_x = int(index_tip.x * width)
                     index_y = int(index_tip.y * height)
 
@@ -104,7 +130,6 @@ class DesktopGestureWorker(QThread):
                         (0, 0, 255),
                         -1
                     )
-
                     cv2.putText(
                         preview_frame,
                         "INDEX",
@@ -116,46 +141,30 @@ class DesktopGestureWorker(QThread):
                     )
 
                 else:
-
                     self.gesture_stabilizer.reset()
                     self.gesture_actions.reset()
+                    self.two_thumbs_streak = 0
                     self.last_emitted_gesture = "UNKNOWN"
 
                 rgb_frame = cv2.cvtColor(
                     preview_frame,
                     cv2.COLOR_BGR2RGB
                 )
-
-                self.camera_frame.emit(
-                    rgb_frame.copy()
-                )
-
+                self.camera_frame.emit(rgb_frame.copy())
                 time.sleep(0.005)
 
         except Exception as error:
-
             message = str(error)
-
-            print(
-                "Gesture worker error:",
-                message
-            )
-
-            self.error_occurred.emit(
-                message
-            )
+            print("Gesture worker error:", message)
+            self.error_occurred.emit(message)
 
         finally:
-
             if self.tracker is not None:
                 self.tracker.close()
-
             if self.camera is not None:
                 self.camera.release()
 
     def stop(self):
-
         self.running = False
-
         if self.isRunning():
             self.wait()
