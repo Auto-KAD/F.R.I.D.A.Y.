@@ -3,7 +3,7 @@ import os
 import time
 import psutil
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QWidget,
@@ -13,9 +13,11 @@ from PyQt6.QtWidgets import (
     QFrame,
     QPushButton
 )
+from dashboard.theme import apply_cloud_garden_theme
 
 
 class SystemPanel(QWidget):
+    return_home_requested = pyqtSignal()
 
     def __init__(self):
 
@@ -24,8 +26,8 @@ class SystemPanel(QWidget):
         self.setWindowTitle("FRIDAY — System")
 
         self.setMinimumSize(
-            700,
-            500
+            800,
+            600
         )
 
         self.setup_ui()
@@ -62,7 +64,7 @@ class SystemPanel(QWidget):
         title.setFont(
             QFont(
                 "Segoe UI",
-                28,
+                32,
                 QFont.Weight.Bold
             )
         )
@@ -224,11 +226,11 @@ class SystemPanel(QWidget):
         )
 
         close_button.setFixedHeight(
-            42
+            58
         )
 
         close_button.clicked.connect(
-            self.close
+            self.return_home_requested.emit
         )
 
         main_layout.addWidget(
@@ -243,42 +245,9 @@ class SystemPanel(QWidget):
         # STYLE
         # -----------------------------------------------------
 
-        self.setStyleSheet("""
-            QWidget {
-                background-color: #0b0f14;
-                color: #e8f0ff;
-            }
-
-            QFrame#card {
-                background-color: #141b24;
-                border: 1px solid #303a48;
-                border-radius: 16px;
-            }
-
-            QFrame#detailsFrame {
-                background-color: #111720;
-                border: 1px solid #27313e;
-                border-radius: 16px;
-            }
-
-            QPushButton {
-                background-color: #1b2430;
-                color: #e8f0ff;
-                border: 1px solid #323d4c;
-                border-radius: 12px;
-                font-family: "Segoe UI";
-                font-size: 12px;
-                padding: 8px;
-            }
-
-            QPushButton:hover {
-                background-color: #273342;
-                border: 1px solid #566579;
-            }
-
-            QPushButton:pressed {
-                background-color: #303d4d;
-            }
+        apply_cloud_garden_theme(self, """
+            QLabel#systemMetricTitle { font-size: 15pt; }
+            QLabel#systemMetricValue { font-size: 34pt; font-weight: bold; }
         """)
 
     # =========================================================
@@ -300,31 +269,34 @@ class SystemPanel(QWidget):
         layout = QVBoxLayout()
 
         layout.setContentsMargins(
-            18,
-            18,
-            18,
-            18
+            26,
+            24,
+            26,
+            24
         )
+        card.setMinimumHeight(190)
 
         title_label = QLabel(
             title
         )
+        title_label.setObjectName("systemMetricTitle")
 
         title_label.setFont(
             QFont(
                 "Segoe UI",
-                11
+                15
             )
         )
 
         value_label = QLabel(
             value
         )
+        value_label.setObjectName("systemMetricValue")
 
         value_label.setFont(
             QFont(
                 "Segoe UI",
-                24,
+                34,
                 QFont.Weight.Bold
             )
         )

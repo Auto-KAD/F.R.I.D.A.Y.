@@ -7,7 +7,8 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
     QTextEdit,
-    QLineEdit
+    QLineEdit,
+    QSizePolicy
 )
 import speech_recognition as sr
 import pyttsx3
@@ -19,6 +20,7 @@ import time
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
+from dashboard.theme import apply_cloud_garden_theme
 
 # Try to load .env from .venv or root
 load_dotenv(".venv/.env")
@@ -294,7 +296,7 @@ class ChatbotPanel(QFrame):
         self.tts_worker = None    # TTSWorker
 
         self.setObjectName("chatbotPanel")
-        self.setFixedWidth(340)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self.setup_ui()
 
@@ -331,7 +333,7 @@ class ChatbotPanel(QFrame):
         # Mute / Unmute narration toggle
         self.tts_toggle_btn = QPushButton("🔊")
         self.tts_toggle_btn.setObjectName("ttsToggleBtn")
-        self.tts_toggle_btn.setFixedSize(32, 32)
+        self.tts_toggle_btn.setFixedSize(42, 42)
         self.tts_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.tts_toggle_btn.setToolTip("Voice narration is ON (click to mute)")
         self.tts_toggle_btn.clicked.connect(self.toggle_narration)
@@ -339,7 +341,7 @@ class ChatbotPanel(QFrame):
 
         # Close button
         close_button = QPushButton("×")
-        close_button.setFixedSize(32, 32)
+        close_button.setFixedSize(42, 42)
         close_button.setCursor(Qt.CursorShape.PointingHandCursor)
         close_button.clicked.connect(self.on_close_clicked)
         header_layout.addWidget(close_button)
@@ -372,7 +374,7 @@ class ChatbotPanel(QFrame):
 
         self.stop_narration_btn = QPushButton("⏹ STOP NARRATION")
         self.stop_narration_btn.setObjectName("stopNarrationBtn")
-        self.stop_narration_btn.setFixedHeight(28)
+        self.stop_narration_btn.setFixedHeight(38)
         self.stop_narration_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.stop_narration_btn.clicked.connect(self.stop_current_action)
 
@@ -395,7 +397,7 @@ class ChatbotPanel(QFrame):
         # Voice input button
         self.mic_button = QPushButton("🎙")
         self.mic_button.setObjectName("micButton")
-        self.mic_button.setFixedSize(42, 42)
+        self.mic_button.setFixedSize(50, 50)
         self.mic_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.mic_button.setToolTip("Voice input")
         self.mic_button.clicked.connect(self.toggle_voice_input)
@@ -403,7 +405,7 @@ class ChatbotPanel(QFrame):
         # Send / Stop action button
         self.action_button = QPushButton("➤")
         self.action_button.setObjectName("actionButton")
-        self.action_button.setFixedSize(42, 42)
+        self.action_button.setFixedSize(50, 50)
         self.action_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.action_button.setToolTip("Send message")
         self.action_button.clicked.connect(self.on_action_button_clicked)
@@ -551,6 +553,13 @@ class ChatbotPanel(QFrame):
                 background-color: #273342;
                 border: 1px solid #566579;
             }
+        """)
+        apply_cloud_garden_theme(self, """
+            QFrame#chatbotPanel { background-color: #F5F3E9; border-left: 2px solid #CBDCCF; }
+            QFrame#statusBar { background-color: #F5E9E6; border-color: #E4C6BE; }
+            QLabel#statusLabel { color: #805C55; }
+            QPushButton#stopNarrationBtn { background-color: #EEDBD5; color: #704D48; border-color: #DDBEB5; }
+            QPushButton#actionStop, QPushButton#micListening { background-color: #EEDBD5; color: #704D48; border-color: #DDBEB5; }
         """)
 
     # ======================================================

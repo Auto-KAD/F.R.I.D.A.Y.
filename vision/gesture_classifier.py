@@ -30,7 +30,12 @@ class GestureClassifier:
                 index_tip
             )
 
-            if pinch_distance < 0.06:
+            palm_width = self.distance(
+                hand_landmarks[5],
+                hand_landmarks[17]
+            )
+
+            if palm_width > 0 and pinch_distance / palm_width < 0.42:
                 return "PINCH"
 
         # OPEN PALM
@@ -80,5 +85,12 @@ class GestureClassifier:
             and not pinky
         ):
             return "THUMBS_UP"
+
+        raised_finger_count = sum(fingers.values())
+        if raised_finger_count == 3:
+            return "THREE_FINGER"
+
+        if raised_finger_count == 4:
+            return "FOUR_FINGER"
 
         return "UNKNOWN"
