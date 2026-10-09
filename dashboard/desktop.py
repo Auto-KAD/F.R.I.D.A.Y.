@@ -264,8 +264,7 @@ class Desktop(QWidget):
             ("♫", "Musiccal Instruments", self.open_media_controller),
             ("▦", "Calendar", self.open_calendar), ("✧", "Tools", self.open_tools),
             ("⚙", "System", self.open_system_panel),
-            ("▤", "Notes", self.open_notes), ("◇", "JARVIS", self.open_jarvis),
-            ("⚡", "Mark LV", self.launch_mark_lv)]:
+            ("▤", "Notes", self.open_notes), ("◇", "JARVIS", self.open_jarvis)]:
             b = QPushButton(f"{icon}   {name}")
             b.setObjectName("navActive" if name == "Home" else "navButton")
             b.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -347,14 +346,6 @@ class Desktop(QWidget):
         self.assistant_message.setObjectName("mutedText")
         self.assistant_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         idle_hero_layout.addWidget(self.assistant_message)
-
-        self.launch_mark_lv_btn = QPushButton("⚡ SWITCH TO MARK LV")
-        self.launch_mark_lv_btn.setObjectName("markLvButton")
-        self.launch_mark_lv_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.launch_mark_lv_btn.setToolTip("Start Mark LV and close FRIDAY")
-        self.launch_mark_lv_btn.clicked.connect(self.launch_mark_lv)
-        idle_hero_layout.addWidget(self.launch_mark_lv_btn, alignment=Qt.AlignmentFlag.AlignCenter)
-
         self.idle_layout.addWidget(hero, 1)
 
         # Lower cards: today / camera state
@@ -810,9 +801,7 @@ class Desktop(QWidget):
         self._show_workspace_page(self.notes_panel, "Notes")
 
     def open_jarvis(self):
-        if not hasattr(self, "jarvis_panel"):
-            self.jarvis_panel = JarvisPanel()
-        self._show_workspace_page(self.jarvis_panel, "JARVIS")
+        self.launch_mark_lv()
 
     def launch_mark_lv(self):
         import subprocess

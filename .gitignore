@@ -29,6 +29,7 @@ data/profiles/
 
 # Local runtime/user data
 data/user_data/
+data/calendar_events.json
 
 # OS / Editor files
 .DS_Store
