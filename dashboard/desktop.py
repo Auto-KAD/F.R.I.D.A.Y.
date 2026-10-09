@@ -289,7 +289,8 @@ class Desktop(QWidget):
             ("👁", "Vision"),
             ("📅", "Calendar"),
             ("🛠", "Tools"),
-            ("⚙", "System")
+            ("⚙", "System"),
+            ("⚡", "Mark LV")
         ]
 
         for icon, name in applications:
@@ -307,6 +308,10 @@ class Desktop(QWidget):
                 button.clicked.connect(self.open_tools)
             elif name == "Calendar":
                 button.clicked.connect(self.open_calendar)
+            elif name == "Mark LV":
+                button.setObjectName("dockMarkLvButton")
+                button.setToolTip("Start Mark LV and close FRIDAY")
+                button.clicked.connect(self.launch_mark_lv)
 
             dock_layout.addWidget(button)
 
@@ -355,6 +360,16 @@ class Desktop(QWidget):
         welcome_layout.addWidget(description)
         welcome_layout.addSpacing(12)
         welcome_layout.addWidget(self.gesture_status_label)
+        welcome_layout.addSpacing(18)
+
+        self.launch_mark_lv_btn = QPushButton("⚡ SWITCH TO MARK LV")
+        self.launch_mark_lv_btn.setObjectName("markLvButton")
+        self.launch_mark_lv_btn.setFixedSize(220, 42)
+        self.launch_mark_lv_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.launch_mark_lv_btn.setToolTip("Launch Mark LV main.py and close FRIDAY")
+        self.launch_mark_lv_btn.clicked.connect(self.launch_mark_lv)
+        welcome_layout.addWidget(self.launch_mark_lv_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
         welcome_area.setLayout(welcome_layout)
 
         self.camera_preview = QLabel()
@@ -507,6 +522,39 @@ class Desktop(QWidget):
 
             QPushButton#chatbotButton:pressed {
                 background-color: #303d4d;
+            }
+
+            QPushButton#markLvButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1a365d, stop:1 #2563eb);
+                color: #ffffff;
+                border: 1px solid #3b82f6;
+                border-radius: 21px;
+                font-family: "Segoe UI";
+                font-size: 13px;
+                font-weight: bold;
+                letter-spacing: 1px;
+                padding: 6px 16px;
+            }
+
+            QPushButton#markLvButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2563eb, stop:1 #3b82f6);
+                border: 1px solid #60a5fa;
+            }
+
+            QPushButton#markLvButton:pressed {
+                background: #1d4ed8;
+            }
+
+            QPushButton#dockMarkLvButton {
+                background-color: #162438;
+                border: 1px solid #2d4f7c;
+                color: #60a5fa;
+            }
+
+            QPushButton#dockMarkLvButton:hover {
+                background-color: #1e3a5f;
+                border: 1px solid #3b82f6;
+                color: #ffffff;
             }
         """)
 
@@ -970,6 +1018,49 @@ class Desktop(QWidget):
         self.calendar.show()
         self.calendar.raise_()
         self.calendar.activateWindow()
+
+    def launch_mark_lv(self):
+        import subprocess
+        import sys
+        from PyQt6.QtWidgets import QApplication
+
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        mark_lv_dir = os.path.join(base_dir, "Mark-LV-main")
+        mark_lv_script = os.path.join(mark_lv_dir, "main.py")
+
+        venv_python = os.path.join(base_dir, ".venv", "bin", "python")
+        if not os.path.exists(venv_python):
+            venv_python_win = os.path.join(base_dir, ".venv", "Scripts", "python.exe")
+            if os.path.exists(venv_python_win):
+                venv_python = venv_python_win
+            else:
+                venv_python = sys.executable
+
+        # Cleanly release camera and gestures before launching Mark LV
+        self.stop_gesture_control()
+
+        # Launch Mark LV concurrently in detached process
+        try:
+            if sys.platform == "win32":
+                subprocess.Popen(
+                    [venv_python, mark_lv_script],
+                    cwd=mark_lv_dir,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                )
+            else:
+                subprocess.Popen(
+                    [venv_python, mark_lv_script],
+                    cwd=mark_lv_dir,
+                    start_new_session=True
+                )
+        except Exception as e:
+            print(f"Failed to launch Mark LV: {e}")
+
+        # Concurrently close FRIDAY
+        self.close()
+        app = QApplication.instance()
+        if app is not None:
+            QTimer.singleShot(100, app.quit)
 
     # ======================================================
     # RESIZE

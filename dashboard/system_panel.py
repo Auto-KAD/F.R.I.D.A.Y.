@@ -1,3 +1,5 @@
+import sys
+import os
 import time
 import psutil
 
@@ -378,113 +380,100 @@ class SystemPanel(QWidget):
         # -----------------------------------------------------
         # CPU
         # -----------------------------------------------------
-
-        cpu = psutil.cpu_percent()
-
-        self.cpu_card.value_label.setText(
-            f"{cpu:.0f}%"
-        )
+        try:
+            cpu = psutil.cpu_percent()
+            self.cpu_card.value_label.setText(
+                f"{cpu:.0f}%"
+            )
+        except Exception:
+            self.cpu_card.value_label.setText("N/A")
 
         # -----------------------------------------------------
         # RAM
         # -----------------------------------------------------
-
-        ram = psutil.virtual_memory()
-
-        self.ram_card.value_label.setText(
-            f"{ram.percent:.0f}%"
-        )
+        try:
+            ram = psutil.virtual_memory()
+            self.ram_card.value_label.setText(
+                f"{ram.percent:.0f}%"
+            )
+        except Exception:
+            ram = None
+            self.ram_card.value_label.setText("N/A")
 
         # -----------------------------------------------------
-        # DISK
+        # DISK (Cross-platform root path: '/' on macOS/Linux, 'C:\\' on Windows)
         # -----------------------------------------------------
-
-        disk = psutil.disk_usage(
-            "C:\\"
-        )
-
-        self.disk_card.value_label.setText(
-            f"{disk.percent:.0f}%"
-        )
+        try:
+            disk_path = "/" if sys.platform != "win32" else "C:\\"
+            disk = psutil.disk_usage(disk_path)
+            self.disk_card.value_label.setText(
+                f"{disk.percent:.0f}%"
+            )
+        except Exception:
+            self.disk_card.value_label.setText("N/A")
 
         # -----------------------------------------------------
         # BATTERY
         # -----------------------------------------------------
-
-        battery = psutil.sensors_battery()
-
-        if battery is not None:
-
-            self.battery_card.value_label.setText(
-                f"{battery.percent:.0f}%"
-            )
-
-        else:
-
-            self.battery_card.value_label.setText(
-                "N/A"
-            )
+        try:
+            battery = psutil.sensors_battery()
+            if battery is not None:
+                self.battery_card.value_label.setText(
+                    f"{battery.percent:.0f}%"
+                )
+            else:
+                self.battery_card.value_label.setText(
+                    "N/A"
+                )
+        except Exception:
+            self.battery_card.value_label.setText("N/A")
 
         # -----------------------------------------------------
         # PROCESSOR
         # -----------------------------------------------------
-
-        physical_cores = psutil.cpu_count(
-            logical=False
-        )
-
-        logical_cores = psutil.cpu_count(
-            logical=True
-        )
-
-        self.processor_label.setText(
-            f"Processor: "
-            f"{physical_cores} cores / "
-            f"{logical_cores} logical processors"
-        )
+        try:
+            physical_cores = psutil.cpu_count(logical=False) or 0
+            logical_cores = psutil.cpu_count(logical=True) or 0
+            self.processor_label.setText(
+                f"Processor: "
+                f"{physical_cores} cores / "
+                f"{logical_cores} logical processors"
+            )
+        except Exception:
+            self.processor_label.setText("Processor: N/A")
 
         # -----------------------------------------------------
         # MEMORY
         # -----------------------------------------------------
-
-        total_memory = (
-            ram.total / (1024 ** 3)
-        )
-
-        self.memory_label.setText(
-            f"Memory: "
-            f"{total_memory:.1f} GB"
-        )
+        try:
+            if ram is not None:
+                total_memory = ram.total / (1024 ** 3)
+                self.memory_label.setText(
+                    f"Memory: "
+                    f"{total_memory:.1f} GB"
+                )
+            else:
+                self.memory_label.setText("Memory: N/A")
+        except Exception:
+            self.memory_label.setText("Memory: N/A")
 
         # -----------------------------------------------------
         # UPTIME
         # -----------------------------------------------------
-
-        boot_time = psutil.boot_time()
-
-        elapsed = (
-            time.time()
-            - boot_time
-        )
-
-        hours = int(
-            elapsed // 3600
-        )
-
-        minutes = int(
-            (elapsed % 3600) // 60
-        )
-
-        seconds = int(
-            elapsed % 60
-        )
-
-        self.uptime_label.setText(
-            f"Uptime: "
-            f"{hours:02d}:"
-            f"{minutes:02d}:"
-            f"{seconds:02d}"
-        )
+        try:
+            boot_time = psutil.boot_time()
+            elapsed = time.time() - boot_time
+            hours = int(elapsed // 3600)
+            minutes = int((elapsed % 3600) // 60)
+            seconds = int(elapsed % 60)
+            self.uptime_label.setText(
+                f"Uptime: "
+                f"{hours:02d}:"
+                f"{minutes:02d}:"
+                f"{seconds:02d}"
+            )
+        except Exception:
+            self.uptime_label.setText("Uptime: N/A")
 
     # =========================================================
     # KEYBOARD CONTROLS

@@ -29,3 +29,12 @@ data/profiles/
 
 # Local runtime/user data
 data/user_data/
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+
+# Mark-LV secrets
+Mark-LV-main/config/api_keys.json
+Mark-LV-main/config/certs/
+Mark-LV-main/config/whatsapp_web/
