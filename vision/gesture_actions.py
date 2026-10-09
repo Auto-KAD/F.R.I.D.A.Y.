@@ -1,5 +1,7 @@
 import pyautogui
 
+TRACKING_REGION = (0.14, 0.86, 0.14, 0.86)
+
 
 class GestureActionController:
 
@@ -12,7 +14,10 @@ class GestureActionController:
         self.previous_x = None
         self.previous_y = None
 
-        self.smoothing = 0.35
+        self.smoothing = 0.28
+        self.cursor_deadzone = 3
+        self.last_emitted_x = None
+        self.last_emitted_y = None
 
         self.was_pinching = False
 
@@ -24,10 +29,12 @@ class GestureActionController:
 
         # The hand does not need to leave the camera frame to
         # reach the edges of the screen.
-        self.camera_left_margin = 0.08
-        self.camera_right_margin = 0.92
-        self.camera_top_margin = 0.08
-        self.camera_bottom_margin = 0.92
+        (
+            self.camera_left_margin,
+            self.camera_right_margin,
+            self.camera_top_margin,
+            self.camera_bottom_margin
+        ) = TRACKING_REGION
 
     def map_axis(self, value, lower, upper):
 
@@ -82,9 +89,23 @@ class GestureActionController:
                 + target_y * self.smoothing
             )
 
+        cursor_x = int(self.previous_x)
+        cursor_y = int(self.previous_y)
+
+        if self.last_emitted_x is not None:
+            movement_squared = (
+                (cursor_x - self.last_emitted_x) ** 2
+                + (cursor_y - self.last_emitted_y) ** 2
+            )
+            if movement_squared < self.cursor_deadzone ** 2:
+                return
+
+        self.last_emitted_x = cursor_x
+        self.last_emitted_y = cursor_y
+
         pyautogui.moveTo(
-            int(self.previous_x),
-            int(self.previous_y),
+            cursor_x,
+            cursor_y,
             duration=0
         )
 
@@ -104,6 +125,8 @@ class GestureActionController:
 
         self.previous_x = None
         self.previous_y = None
+        self.last_emitted_x = None
+        self.last_emitted_y = None
 
         self.was_pinching = False
 

@@ -4,7 +4,8 @@ import time
 
 from PyQt6.QtCore import (
     Qt,
-    QTimer
+    QTimer,
+    pyqtSignal
 )
 
 from PyQt6.QtGui import (
@@ -28,9 +29,11 @@ from PyQt6.QtWidgets import (
 )
 
 from vision.camera import Camera
+from dashboard.theme import apply_cloud_garden_theme
 
 
 class Tools(QWidget):
+    return_home_requested = pyqtSignal()
 
     def __init__(self):
 
@@ -41,8 +44,8 @@ class Tools(QWidget):
         )
 
         self.setMinimumSize(
-            900,
-            650
+            1000,
+            720
         )
 
         # --------------------------------
@@ -179,16 +182,6 @@ class Tools(QWidget):
             "STOPWATCH"
         )
 
-        self.tabs.addTab(
-            self.create_qr_generator(),
-            "QR GENERATOR"
-        )
-
-        self.tabs.addTab(
-            self.create_qr_scanner(),
-            "QR SCANNER"
-        )
-
         main_layout.addWidget(
             self.tabs,
             1
@@ -207,7 +200,7 @@ class Tools(QWidget):
         )
 
         close_button.clicked.connect(
-            self.close
+            self.return_home_requested.emit
         )
 
         main_layout.addWidget(
@@ -307,6 +300,17 @@ class Tools(QWidget):
             QPushButton:pressed {
                 background-color: #303d4d;
             }
+        """)
+        apply_cloud_garden_theme(self, """
+            QTabBar::tab { min-height: 50px; padding: 10px 20px; font-size: 14pt; }
+            QLabel#unitTitle, QLabel#timerTitle, QLabel#stopwatchTitle { font-size: 26pt; font-weight: bold; }
+            QLineEdit#unitInput, QComboBox#unitType { min-height: 68px; font-size: 18pt; padding: 12px 16px; }
+            QPushButton#unitConvert { min-height: 70px; font-size: 17pt; font-weight: bold; }
+            QLabel#unitResult { min-height: 90px; font-size: 28pt; font-weight: bold; }
+            QLabel#timerDisplay { min-height: 84px; font-size: 42pt; font-weight: bold; }
+            QLineEdit#timerMinutes, QLineEdit#timerSeconds { min-height: 68px; font-size: 18pt; }
+            QPushButton#timerAction, QPushButton#stopwatchAction { min-height: 72px; font-size: 16pt; font-weight: bold; }
+            QLabel#stopwatchDisplay { min-height: 140px; font-size: 52pt; font-weight: bold; }
         """)
 
     # ==================================================
@@ -495,20 +499,23 @@ class Tools(QWidget):
         layout = QVBoxLayout()
 
         layout.setContentsMargins(
-            30,
-            30,
-            30,
-            30
+            36,
+            28,
+            36,
+            28
         )
+        layout.setSpacing(18)
+        layout.addStretch(1)
 
         title = QLabel(
             "UNIT CONVERTER"
         )
+        title.setObjectName("unitTitle")
 
         title.setFont(
             QFont(
                 "Segoe UI",
-                18,
+                24,
                 QFont.Weight.Bold
             )
         )
@@ -518,16 +525,21 @@ class Tools(QWidget):
         )
 
         self.unit_input = QLineEdit()
+        self.unit_input.setObjectName("unitInput")
 
         self.unit_input.setPlaceholderText(
             "Enter value"
         )
+        self.unit_input.setMinimumSize(280, 68)
+        self.unit_input.setFont(QFont("Segoe UI", 19))
+        self.unit_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         layout.addWidget(
             self.unit_input
         )
 
         self.unit_type = QComboBox()
+        self.unit_type.setObjectName("unitType")
 
         self.unit_type.addItems([
             "Kilometers → Miles",
@@ -541,6 +553,8 @@ class Tools(QWidget):
             "Liters → Gallons",
             "Gallons → Liters"
         ])
+        self.unit_type.setMinimumSize(360, 68)
+        self.unit_type.setFont(QFont("Segoe UI", 17))
 
         layout.addWidget(
             self.unit_type
@@ -549,10 +563,10 @@ class Tools(QWidget):
         convert_button = QPushButton(
             "CONVERT"
         )
+        convert_button.setObjectName("unitConvert")
 
-        convert_button.setFixedHeight(
-            45
-        )
+        convert_button.setMinimumSize(260, 70)
+        convert_button.setFont(QFont("Segoe UI", 17, QFont.Weight.DemiBold))
 
         convert_button.clicked.connect(
             self.convert_units
@@ -565,11 +579,12 @@ class Tools(QWidget):
         self.unit_result = QLabel(
             "Result: --"
         )
+        self.unit_result.setObjectName("unitResult")
 
         self.unit_result.setFont(
             QFont(
                 "Segoe UI",
-                18,
+                28,
                 QFont.Weight.Bold
             )
         )
@@ -670,18 +685,19 @@ class Tools(QWidget):
 
         layout = QVBoxLayout()
 
-        layout.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-        )
+        layout.setContentsMargins(36, 28, 36, 28)
+        layout.setSpacing(22)
+        layout.addStretch(1)
 
         title = QLabel(
             "TIMER"
         )
+        title.setObjectName("timerTitle")
 
         title.setFont(
             QFont(
                 "Segoe UI",
-                20,
+                26,
                 QFont.Weight.Bold
             )
         )
@@ -697,6 +713,7 @@ class Tools(QWidget):
         self.timer_display = QLabel(
             "00:00:00"
         )
+        self.timer_display.setObjectName("timerDisplay")
 
         self.timer_display.setFont(
             QFont(
@@ -709,6 +726,7 @@ class Tools(QWidget):
         self.timer_display.setAlignment(
             Qt.AlignmentFlag.AlignCenter
         )
+        self.timer_display.setMinimumHeight(84)
 
         layout.addWidget(
             self.timer_display
@@ -717,24 +735,25 @@ class Tools(QWidget):
         input_layout = QHBoxLayout()
 
         self.timer_minutes = QLineEdit()
+        self.timer_minutes.setObjectName("timerMinutes")
 
         self.timer_minutes.setPlaceholderText(
             "Minutes"
         )
 
-        self.timer_minutes.setFixedWidth(
-            130
-        )
+        self.timer_minutes.setMinimumSize(210, 68)
+        self.timer_minutes.setFont(QFont("Segoe UI", 18))
 
         self.timer_seconds_input = QLineEdit()
+        self.timer_seconds_input.setObjectName("timerSeconds")
 
         self.timer_seconds_input.setPlaceholderText(
             "Seconds"
         )
 
-        self.timer_seconds_input.setFixedWidth(
-            130
-        )
+        self.timer_seconds_input.setMinimumSize(210, 68)
+        self.timer_seconds_input.setFont(QFont("Segoe UI", 18))
+        input_layout.setSpacing(14)
 
         input_layout.addWidget(
             self.timer_minutes
@@ -761,6 +780,11 @@ class Tools(QWidget):
         reset_button = QPushButton(
             "RESET"
         )
+
+        for button in (start_button, pause_button, reset_button):
+            button.setObjectName("timerAction")
+            button.setMinimumHeight(72)
+            button.setFont(QFont("Segoe UI", 16, QFont.Weight.DemiBold))
 
         start_button.clicked.connect(
             self.start_timer
@@ -790,7 +814,7 @@ class Tools(QWidget):
             button_layout
         )
 
-        layout.addStretch()
+        layout.addStretch(1)
 
         widget.setLayout(
             layout
@@ -902,18 +926,19 @@ class Tools(QWidget):
 
         layout = QVBoxLayout()
 
-        layout.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-        )
+        layout.setContentsMargins(36, 28, 36, 28)
+        layout.setSpacing(24)
+        layout.addStretch(1)
 
         title = QLabel(
             "STOPWATCH"
         )
+        title.setObjectName("stopwatchTitle")
 
         title.setFont(
             QFont(
                 "Segoe UI",
-                20,
+                26,
                 QFont.Weight.Bold
             )
         )
@@ -929,6 +954,7 @@ class Tools(QWidget):
         self.stopwatch_display = QLabel(
             "00:00:00.00"
         )
+        self.stopwatch_display.setObjectName("stopwatchDisplay")
 
         self.stopwatch_display.setFont(
             QFont(
@@ -941,6 +967,7 @@ class Tools(QWidget):
         self.stopwatch_display.setAlignment(
             Qt.AlignmentFlag.AlignCenter
         )
+        self.stopwatch_display.setMinimumHeight(140)
 
         layout.addWidget(
             self.stopwatch_display
@@ -959,6 +986,11 @@ class Tools(QWidget):
         reset_button = QPushButton(
             "RESET"
         )
+
+        for button in (start_button, stop_button, reset_button):
+            button.setObjectName("stopwatchAction")
+            button.setMinimumHeight(72)
+            button.setFont(QFont("Segoe UI", 16, QFont.Weight.DemiBold))
 
         start_button.clicked.connect(
             self.start_stopwatch
@@ -988,7 +1020,7 @@ class Tools(QWidget):
             buttons_layout
         )
 
-        layout.addStretch()
+        layout.addStretch(1)
 
         widget.setLayout(
             layout
@@ -1489,7 +1521,5 @@ class Tools(QWidget):
         self.timer.stop()
 
         self.stopwatch_timer.stop()
-
-        self.stop_qr_camera()
 
         event.accept()

@@ -8,7 +8,7 @@ from vision.hand_tracker import HandTracker
 from vision.finger_detector import FingerDetector
 from vision.gesture_classifier import GestureClassifier
 from vision.gesture_stabilizer import GestureStabilizer
-from vision.gesture_actions import GestureActionController
+from vision.gesture_actions import GestureActionController, TRACKING_REGION
 
 
 class DesktopGestureWorker(QThread):
@@ -39,7 +39,7 @@ class DesktopGestureWorker(QThread):
             self.finger_detector = FingerDetector()
             self.gesture_classifier = GestureClassifier()
             self.gesture_stabilizer = GestureStabilizer(
-                required_frames=6
+                required_frames=4
             )
             self.gesture_actions = GestureActionController()
 
@@ -53,6 +53,26 @@ class DesktopGestureWorker(QThread):
                 preview_frame = self.tracker.draw_landmarks(
                     frame.copy(),
                     result
+                )
+                height, width, _ = preview_frame.shape
+                left, right, top, bottom = TRACKING_REGION
+                region_start = (int(left * width), int(top * height))
+                region_end = (int(right * width), int(bottom * height))
+                cv2.rectangle(
+                    preview_frame,
+                    region_start,
+                    region_end,
+                    (104, 140, 111),
+                    2
+                )
+                cv2.putText(
+                    preview_frame,
+                    "POINTER ACTIVE AREA",
+                    (region_start[0] + 8, region_start[1] - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55,
+                    (104, 140, 111),
+                    2
                 )
 
                 hand_landmarks_list = result.hand_landmarks or []
@@ -107,8 +127,13 @@ class DesktopGestureWorker(QThread):
                     )
 
                     index_tip = hand_landmarks[8]
+                    action_gesture = (
+                        raw_gesture
+                        if raw_gesture == "POINT"
+                        else confirmed_gesture
+                    )
                     self.gesture_actions.execute(
-                        confirmed_gesture,
+                        action_gesture,
                         index_tip
                     )
 

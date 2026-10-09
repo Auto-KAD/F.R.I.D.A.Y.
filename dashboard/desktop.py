@@ -3,23 +3,195 @@ import psutil
 import pyautogui
 
 from PyQt6.QtCore import Qt, QTimer, QTime
-from PyQt6.QtGui import QFont, QPixmap, QPainter, QPainterPath, QImage
+from PyQt6.QtGui import QCursor, QFont, QPixmap, QPainter, QPainterPath, QImage, QColor, QPen, QBrush, QRadialGradient
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QFrame
+    QFrame,
+    QSizePolicy,
+    QStackedWidget
 )
 
 from dashboard.system_panel import SystemPanel
 from dashboard.vision_studio import VisionStudio
+from dashboard.gesture_lab import GestureLabPanel
 from dashboard.media_controller import MediaController
 from dashboard.tools import Tools
 from dashboard.calendar import Calendar
 from dashboard.chatbot import ChatbotPanel
+from dashboard.jarvis import JarvisPanel
+from dashboard.notes import NotesPanel
 from vision.desktop_gesture_worker import DesktopGestureWorker
+
+
+
+class MeadowCompanion(QWidget):
+    """Animated FRIDAY orb: blinks, smiles occasionally, and follows the cursor."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumSize(145, 135)
+        self.setMouseTracking(True)
+        self.eye_offset_x = 0.0
+        self.eye_offset_y = 0.0
+        self.blink = False
+        self.smile = True
+        self._blink_timer = QTimer(self)
+        self._blink_timer.timeout.connect(self._blink_once)
+        self._blink_timer.start(2600)
+        self._smile_timer = QTimer(self)
+        self._smile_timer.timeout.connect(self._change_expression)
+        self._smile_timer.start(5200)
+        self._float_phase = 0
+        self._motion_timer = QTimer(self)
+        self._motion_timer.timeout.connect(self._animate)
+        self._motion_timer.start(70)
+
+    def _blink_once(self):
+        self.blink = True
+        self.update()
+        QTimer.singleShot(150, self._open_eyes)
+
+    def _open_eyes(self):
+        self.blink = False
+        self.update()
+
+    def _change_expression(self):
+        self.smile = not self.smile
+        self.update()
+        QTimer.singleShot(900, self._restore_smile)
+
+    def _restore_smile(self):
+        self.smile = True
+        self.update()
+
+    def _animate(self):
+        self._float_phase = (self._float_phase + 1) % 360
+        cursor = self.mapFromGlobal(QCursor.pos())
+        center = self.rect().center()
+        self._set_eye_direction(
+            cursor.x() - center.x(),
+            cursor.y() - center.y()
+        )
+        self.update()
+
+    def _set_eye_direction(self, dx, dy):
+        self.eye_offset_x = max(-4.0, min(4.0, dx / 24.0))
+        self.eye_offset_y = max(-3.0, min(3.0, dy / 24.0))
+
+    def mouseMoveEvent(self, event):
+        center = self.rect().center()
+        dx = event.position().x() - center.x()
+        dy = event.position().y() - center.y()
+        self._set_eye_direction(dx, dy)
+        self.update()
+        super().mouseMoveEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        cx, cy = w / 2, h / 2 + (self._float_phase % 24 - 12) * 0.22
+        radius = min(w, h) * 0.31
+
+        glow = QRadialGradient(cx, cy, radius * 1.6)
+        glow.setColorAt(0, QColor(131, 202, 218, 72))
+        glow.setColorAt(0.62, QColor(201, 187, 227, 30))
+        glow.setColorAt(1, QColor(201, 187, 227, 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(glow))
+        painter.drawEllipse(int(cx-radius*1.6), int(cy-radius*1.6), int(radius*3.2), int(radius*3.2))
+
+        painter.setPen(QPen(QColor('#8DBDB8'), 1.5))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.save()
+        painter.translate(cx, cy)
+        painter.rotate(-14)
+        painter.drawEllipse(int(-radius*1.48), int(-radius*0.34), int(radius*2.96), int(radius*0.68))
+        painter.restore()
+
+        orb_gradient = QRadialGradient(cx-radius*.34, cy-radius*.42, radius*1.6)
+        orb_gradient.setColorAt(0, QColor('#FFF8DB'))
+        orb_gradient.setColorAt(0.36, QColor('#F5D7E8'))
+        orb_gradient.setColorAt(0.72, QColor('#A8D9E2'))
+        orb_gradient.setColorAt(1, QColor('#769FC9'))
+        painter.setPen(QPen(QColor('#FDFDF0'), 2))
+        painter.setBrush(QBrush(orb_gradient))
+        painter.drawEllipse(int(cx-radius), int(cy-radius), int(radius*2), int(radius*2))
+
+        sheen = QRadialGradient(cx-radius*.46, cy-radius*.58, radius*.9)
+        sheen.setColorAt(0, QColor(255, 255, 255, 150))
+        sheen.setColorAt(1, QColor(255, 255, 255, 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(sheen))
+        painter.drawEllipse(int(cx-radius*.83), int(cy-radius*.88), int(radius*1.65), int(radius*1.65))
+
+        painter.setBrush(QColor(224, 132, 150, 62))
+        painter.drawEllipse(int(cx-radius*.69), int(cy+radius*.15), int(radius*.34), int(radius*.18))
+        painter.drawEllipse(int(cx+radius*.35), int(cy+radius*.15), int(radius*.34), int(radius*.18))
+
+        eye_y = cy - radius * 0.08
+        eye_dx = radius * 0.34
+        eye_width = radius * .25
+        eye_height = radius * .31
+        pupil_width = radius * .13
+        pupil_height = radius * .17
+        pupil_limit_x = (eye_width - pupil_width) / 2
+        pupil_limit_y = (eye_height - pupil_height) / 2
+        pupil_offset_x = max(-pupil_limit_x, min(pupil_limit_x, self.eye_offset_x))
+        pupil_offset_y = max(-pupil_limit_y, min(pupil_limit_y, self.eye_offset_y))
+        painter.setPen(Qt.PenStyle.NoPen)
+        if self.blink:
+            painter.setPen(QPen(QColor('#496C78'), max(2, int(radius*.055)), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            painter.drawLine(int(cx-eye_dx-radius*.10), int(eye_y), int(cx-eye_dx+radius*.10), int(eye_y))
+            painter.drawLine(int(cx+eye_dx-radius*.10), int(eye_y), int(cx+eye_dx+radius*.10), int(eye_y))
+        else:
+            painter.setBrush(QColor('#FFFDF5'))
+            painter.drawEllipse(int(cx-eye_dx-eye_width/2), int(eye_y-eye_height/2), int(eye_width), int(eye_height))
+            painter.drawEllipse(int(cx+eye_dx-eye_width/2), int(eye_y-eye_height/2), int(eye_width), int(eye_height))
+            painter.setBrush(QColor('#365D72'))
+            left_pupil_x = cx - eye_dx + pupil_offset_x - pupil_width / 2
+            right_pupil_x = cx + eye_dx + pupil_offset_x - pupil_width / 2
+            pupil_top = eye_y + pupil_offset_y - pupil_height / 2
+            painter.drawEllipse(int(left_pupil_x), int(pupil_top), int(pupil_width), int(pupil_height))
+            painter.drawEllipse(int(right_pupil_x), int(pupil_top), int(pupil_width), int(pupil_height))
+            painter.setBrush(QColor('#FFFFFF'))
+            highlight_size = max(2, int(radius * .04))
+            highlight_offset_x = pupil_width * .16
+            highlight_offset_y = pupil_height * .18
+            painter.drawEllipse(int(cx-eye_dx+pupil_offset_x-highlight_offset_x), int(eye_y+pupil_offset_y-highlight_offset_y), highlight_size, highlight_size)
+            painter.drawEllipse(int(cx+eye_dx+pupil_offset_x-highlight_offset_x), int(eye_y+pupil_offset_y-highlight_offset_y), highlight_size, highlight_size)
+
+        painter.setPen(QPen(QColor('#8B5E68'), max(2, int(radius*0.055)), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        if self.smile:
+            smile = QPainterPath()
+            smile.moveTo(cx-radius*.18, cy+radius*.22)
+            smile.quadTo(cx, cy+radius*.43, cx+radius*.18, cy+radius*.22)
+            painter.drawPath(smile)
+        else:
+            painter.drawLine(int(cx-radius*.12), int(cy+radius*.29), int(cx+radius*.12), int(cy+radius*.29))
+
+        sprout_stem = QPainterPath()
+        sprout_stem.moveTo(cx, cy-radius*.88)
+        sprout_stem.quadTo(cx-radius*.02, cy-radius*1.04, cx+radius*.02, cy-radius*1.10)
+        painter.setPen(QPen(QColor('#668E68'), max(2, int(radius*.045)), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.drawPath(sprout_stem)
+        for direction in (-1, 1):
+            leaf = QPainterPath()
+            leaf.moveTo(cx, cy-radius*1.01)
+            leaf.quadTo(cx+direction*radius*.04, cy-radius*1.17, cx+direction*radius*.25, cy-radius*1.13)
+            leaf.quadTo(cx+direction*radius*.20, cy-radius*.98, cx, cy-radius*1.01)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor('#83AE7C' if direction < 0 else '#A7C889'))
+            painter.drawPath(leaf)
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor('#F4C77A'))
+        for sx, sy, size in [(-1.18, -.72, 3), (1.23, -.48, 3), (-1.05, .78, 2), (1.08, .82, 2)]:
+            painter.drawEllipse(int(cx+sx*radius-size), int(cy+sy*radius-size), size*2, size*2)
 
 
 class Desktop(QWidget):
@@ -46,16 +218,8 @@ class Desktop(QWidget):
 
         self.chatbot = None
 
-        # ==================================================
-        # GESTURE CONTROL
-        # ==================================================
-
+        self.gesture_lab = None
         self.gesture_worker = None
-
-        # The Vision Studio can also need the physical camera.
-        # This timer manages camera ownership between FRIDAY's
-        # gesture worker and Vision Studio.
-        self.camera_ownership_timer = None
 
         self.setWindowTitle("FRIDAY")
 
@@ -63,456 +227,244 @@ class Desktop(QWidget):
 
         self.start_system_monitor()
         self.start_gesture_control()
-        self.start_camera_ownership_monitor()
 
     # ======================================================
     # MAIN UI
     # ======================================================
 
     def setup_ui(self):
-
-        main_layout = QVBoxLayout()
-
-        main_layout.setContentsMargins(
-            28,
-            20,
-            28,
-            18
-        )
-
-        main_layout.setSpacing(0)
-
-        # ==================================================
-        # TOP AREA
-        # ==================================================
-
-        top_area = QFrame()
-
-        top_area.setObjectName("topArea")
-
-        top_layout = QHBoxLayout()
-
-        top_layout.setContentsMargins(
-            12,
-            8,
-            12,
-            8
-        )
-
-        # ==================================================
-        # PROFILE — TOP LEFT
-        # ==================================================
-
-        profile_container = QFrame()
-
-        profile_layout = QHBoxLayout()
-
-        profile_layout.setContentsMargins(
-            0,
-            0,
-            0,
-            0
-        )
-
-        profile_layout.setSpacing(10)
-
-        self.profile_photo = QLabel()
-
-        self.profile_photo.setFixedSize(
-            54,
-            54
-        )
-
-        self.profile_photo.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-        )
-
-        self.load_profile_photo()
-
-        profile_text_layout = QVBoxLayout()
-
-        profile_text_layout.setContentsMargins(
-            0,
-            0,
-            0,
-            0
-        )
-
-        profile_text_layout.setSpacing(2)
-
-        logged_label = QLabel(
-            "LOGGED IN AS"
-        )
-
-        logged_label.setFont(
-            QFont(
-                "Segoe UI",
-                8,
-                QFont.Weight.Bold
-            )
-        )
-
-        username_label = QLabel(
-            self.username.upper()
-        )
-
-        username_label.setFont(
-            QFont(
-                "Segoe UI",
-                12,
-                QFont.Weight.Bold
-            )
-        )
-
-        profile_text_layout.addWidget(
-            logged_label
-        )
-
-        profile_text_layout.addWidget(
-            username_label
-        )
-
-        profile_layout.addWidget(
-            self.profile_photo
-        )
-
-        profile_layout.addLayout(
-            profile_text_layout
-        )
-
-        profile_container.setLayout(
-            profile_layout
-        )
-
-        top_layout.addWidget(
-            profile_container
-        )
-
-        # ==================================================
-        # RIGHT STATUS
-        # ==================================================
-
-        status_container = QFrame()
-
-        status_layout = QVBoxLayout()
-
-        status_layout.setContentsMargins(
-            0,
-            0,
-            0,
-            0
-        )
-
-        status_layout.setSpacing(2)
-
-        self.system_label = QLabel(
-            "CPU  --%     RAM  --%"
-        )
-
-        self.system_label.setFont(
-            QFont(
-                "Segoe UI",
-                9
-            )
-        )
-
-        status_label = QLabel(
-            "●  ONLINE"
-        )
-
-        status_label.setFont(
-            QFont(
-                "Segoe UI",
-                9,
-                QFont.Weight.Bold
-            )
-        )
-
-        self.clock_label = QLabel(
-            "--:--"
-        )
-
-        self.clock_label.setFont(
-            QFont(
-                "Segoe UI",
-                9
-            )
-        )
-
-        status_layout.addWidget(
-            self.system_label,
-            alignment=Qt.AlignmentFlag.AlignRight
-        )
-
-        status_layout.addWidget(
-            status_label,
-            alignment=Qt.AlignmentFlag.AlignRight
-        )
-
-        status_layout.addWidget(
-            self.clock_label,
-            alignment=Qt.AlignmentFlag.AlignRight
-        )
-
-        status_container.setLayout(
-            status_layout
-        )
-
-        top_layout.addWidget(
-            status_container
-        )
-
-        top_area.setLayout(
-            top_layout
-        )
-
-        main_layout.addWidget(
-            top_area
-        )
-
-        main_layout.addSpacing(12)
-
-        # ==================================================
-        # APPLICATION DOCK — TOP
-        # ==================================================
-
-        dock = QFrame()
-        dock.setObjectName("dock")
-
-        dock_layout = QHBoxLayout()
-        dock_layout.setContentsMargins(18, 12, 18, 12)
-        dock_layout.setSpacing(10)
-        dock_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        applications = [
-            ("🎵", "Music"),
-            ("🎬", "Media"),
-            ("👁", "Vision"),
-            ("📅", "Calendar"),
-            ("🛠", "Tools"),
-            ("⚙", "System")
-        ]
-
-        for icon, name in applications:
-            button = QPushButton(f"{icon}\n{name}")
-            button.setFixedSize(105, 68)
-            button.setCursor(Qt.CursorShape.PointingHandCursor)
-
-            if name == "System":
-                button.clicked.connect(self.open_system_panel)
-            elif name == "Vision":
-                button.clicked.connect(self.open_vision_studio)
-            elif name == "Media":
-                button.clicked.connect(self.open_media_controller)
-            elif name == "Tools":
-                button.clicked.connect(self.open_tools)
-            elif name == "Calendar":
-                button.clicked.connect(self.open_calendar)
-
-            dock_layout.addWidget(button)
-
-        dock.setLayout(dock_layout)
-        main_layout.addWidget(dock)
-        main_layout.addSpacing(12)
-
-        # ==================================================
-        # CENTER AREA + CAMERA PREVIEW
-        # ==================================================
-
-        center_area = QFrame()
-        center_layout = QHBoxLayout()
-        center_layout.setContentsMargins(20, 10, 20, 10)
-        center_layout.setSpacing(30)
-
-        welcome_area = QFrame()
-        welcome_layout = QVBoxLayout()
-        welcome_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        welcome = QLabel(f"WELCOME, {self.username.upper()}")
-        welcome.setFont(QFont("Segoe UI", 34, QFont.Weight.Bold))
-        welcome.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        assistant_status = QLabel("FRIDAY SYSTEM ONLINE")
-        assistant_status.setFont(QFont("Segoe UI", 15))
-        assistant_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        description = QLabel(
-            "Your intelligent visual desktop environment\n\n"
-            "Point ☝  Move cursor     Pinch 🤏  Click"
-        )
-        description.setFont(QFont("Segoe UI", 11))
-        description.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.gesture_status_label = QLabel("GESTURE CONTROL • INITIALIZING")
-        self.gesture_status_label.setFont(
-            QFont("Segoe UI", 10, QFont.Weight.Bold)
-        )
-        self.gesture_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        welcome_layout.addWidget(welcome)
-        welcome_layout.addSpacing(8)
-        welcome_layout.addWidget(assistant_status)
-        welcome_layout.addSpacing(8)
-        welcome_layout.addWidget(description)
-        welcome_layout.addSpacing(12)
-        welcome_layout.addWidget(self.gesture_status_label)
-        welcome_area.setLayout(welcome_layout)
-
-        self.camera_preview = QLabel()
-        self.camera_preview.setFixedSize(360, 230)
-        self.camera_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.camera_preview.setText("CAMERA\nSTARTING...")
+        self.setMinimumSize(800, 560)
+        self.setObjectName("dashboardRoot")
+        self.setWindowTitle("F.R.I.D.A.Y. — Cloud Garden")
+
+        root = QHBoxLayout(self)
+        root.setContentsMargins(14, 12, 14, 12)
+        root.setSpacing(12)
+        self.root_layout = root
+
+        # Left navigation rail
+        self.sidebar = QFrame()
+        self.sidebar.setObjectName("sidebar")
+        self.sidebar.setFixedWidth(204)
+        side = QVBoxLayout(self.sidebar)
+        side.setContentsMargins(12, 16, 12, 14)
+        side.setSpacing(5)
+        brand = QLabel("✦ F.R.I.D.A.Y.")
+        brand.setObjectName("brand")
+        brand.setFont(QFont("Georgia", 14, QFont.Weight.Bold))
+        side.addWidget(brand)
+        tagline = QLabel("YOUR CLOUD GARDEN")
+        tagline.setObjectName("eyebrow")
+        side.addWidget(tagline)
+        side.addSpacing(10)
+        self.navigation_buttons = {}
+        for icon, name, callback in [
+            ("⌂", "Home", self.show_idle), ("◎", "Vision Studio", self.open_vision_studio),
+            ("♧", "Gesture Lab", self.open_gesture_lab), ("♫", "Media", self.open_media_controller),
+            ("♫", "Musiccal Instruments", self.open_media_controller),
+            ("▦", "Calendar", self.open_calendar), ("✧", "Tools", self.open_tools),
+            ("⚙", "System", self.open_system_panel),
+            ("▤", "Notes", self.open_notes), ("◇", "JARVIS", self.open_jarvis)]:
+            b = QPushButton(f"{icon}   {name}")
+            b.setObjectName("navActive" if name == "Home" else "navButton")
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.setMinimumHeight(42)
+            b.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+            b.clicked.connect(callback)
+            side.addWidget(b)
+            self.navigation_buttons[name] = b
+        side.addStretch(1)
+        note = QLabel("“Little steps,\nbig magic.” ✧")
+        note.setObjectName("sideNote")
+        note.setWordWrap(True)
+        side.addWidget(note)
+        root.addWidget(self.sidebar)
+
+        # Main content column
+        main_col = QVBoxLayout()
+        main_col.setSpacing(9)
+        self.main_col = main_col
+        root.addLayout(main_col, 1)
+
+        top = QHBoxLayout()
+        greeting_box = QVBoxLayout()
+        greeting = QLabel(f"Good day, {self.username.title()}! ✿")
+        greeting.setObjectName("greeting")
+        greeting.setFont(QFont("Trebuchet MS", 23, QFont.Weight.DemiBold))
+        subtitle = QLabel("A softer start, a brighter day.")
+        subtitle.setObjectName("mutedText")
+        greeting_box.addWidget(greeting)
+        greeting_box.addWidget(subtitle)
+        top.addLayout(greeting_box, 1)
+
+        status_box = QFrame()
+        status_box.setObjectName("glassCard")
+        status_box.setMinimumWidth(172)
+        status_layout = QVBoxLayout(status_box)
+        status_layout.setContentsMargins(12, 8, 12, 8)
+        self.system_label = QLabel("CPU  --%   •   RAM  --%")
+        self.clock_label = QLabel("--:--")
+        online = QLabel("●  ONLINE · READY")
+        online.setObjectName("onlineLabel")
+        status_layout.addWidget(online, alignment=Qt.AlignmentFlag.AlignRight)
+        status_layout.addWidget(self.system_label, alignment=Qt.AlignmentFlag.AlignRight)
+        status_layout.addWidget(self.clock_label, alignment=Qt.AlignmentFlag.AlignRight)
+        top.addWidget(status_box)
+        main_col.addLayout(top)
+
+        workspace = QFrame()
+        workspace.setObjectName("heroCard")
+        self.hero_layout = QVBoxLayout(workspace)
+        self.hero_layout.setContentsMargins(12, 10, 12, 10)
+        self.hero_layout.setSpacing(0)
+        self.workspace_stack = QStackedWidget()
+        self.workspace_stack.setObjectName("workspaceStack")
+        self.hero_layout.addWidget(self.workspace_stack, 1)
+
+        self.idle_page = QWidget()
+        self.idle_layout = QVBoxLayout(self.idle_page)
+        self.idle_layout.setContentsMargins(0, 0, 0, 0)
+        self.idle_layout.setSpacing(10)
+
+        # Center idle view with animated companion
+        hero = QFrame()
+        hero.setObjectName("idleHero")
+        idle_hero_layout = QVBoxLayout(hero)
+        idle_hero_layout.setContentsMargins(18, 8, 18, 10)
+        idle_hero_layout.setSpacing(3)
+        idle_hero_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.companion = MeadowCompanion()
+        self.companion.setMaximumSize(300, 270)
+        self.companion.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        idle_hero_layout.addWidget(self.companion, 1, alignment=Qt.AlignmentFlag.AlignCenter)
+        companion_title = QLabel("A little magic, right here")
+        companion_title.setObjectName("heroTitle")
+        companion_title.setFont(QFont("Trebuchet MS", 20, QFont.Weight.DemiBold))
+        companion_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        idle_hero_layout.addWidget(companion_title)
+        self.assistant_message = QLabel("I'm here for you. Take a breath and let's make something.")
+        self.assistant_message.setObjectName("mutedText")
+        self.assistant_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        idle_hero_layout.addWidget(self.assistant_message)
+        self.idle_layout.addWidget(hero, 1)
+
+        # Lower cards: today / camera state
+        lower = QHBoxLayout()
+        lower.setSpacing(12)
+        today = QFrame()
+        today.setObjectName("glassCard")
+        today_layout = QVBoxLayout(today)
+        today_layout.setContentsMargins(14, 10, 14, 10)
+        today_title = QLabel("🌱  TODAY, IN BLOOM")
+        today_title.setObjectName("eyebrow")
+        today_layout.addWidget(today_title)
+        today_layout.addWidget(QLabel("A little progress is still progress."))
+        today_layout.addWidget(QLabel("✦  Create something • Take a breath • Keep going"))
+        lower.addWidget(today, 1)
+
+        camera_card = QFrame()
+        camera_card.setObjectName("glassCard")
+        camera_layout = QVBoxLayout(camera_card)
+        camera_layout.setContentsMargins(12, 10, 12, 10)
+        camera_title = QLabel("✧  HAND TRACKING")
+        camera_title.setObjectName("eyebrow")
+        camera_layout.addWidget(camera_title)
+        self.camera_preview = QLabel("OPEN GESTURE LAB TO START")
         self.camera_preview.setObjectName("cameraPreview")
-
-        center_layout.addWidget(welcome_area, 1)
-        center_layout.addWidget(self.camera_preview, 0, Qt.AlignmentFlag.AlignCenter)
-        center_area.setLayout(center_layout)
-
-        main_layout.addWidget(center_area, 1)
-
-        # ==================================================
-        # FRIDAY HEADING — BOTTOM
-        # ==================================================
-
-        bottom_heading = QFrame()
-        bottom_layout = QVBoxLayout()
-        bottom_layout.setContentsMargins(0, 8, 0, 4)
-        bottom_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        friday_title = QLabel("F.R.I.D.A.Y.")
-        friday_title.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
-        friday_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        friday_title.setObjectName("fridayTitle")
-
-        bottom_subtitle = QLabel("VISION • GESTURE • INTELLIGENCE")
-        bottom_subtitle.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-        bottom_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        bottom_layout.addWidget(friday_title)
-        bottom_layout.addWidget(bottom_subtitle)
-        bottom_heading.setLayout(bottom_layout)
-        main_layout.addWidget(bottom_heading)
-
-
-        self.setLayout(
-            main_layout
-        )
-
-        # ==================================================
-        # CHATBOT CIRCULAR BUTTON
-        # ==================================================
-
-        self.chatbot_button = QPushButton(
-            "F",
-            self
-        )
-
-        self.chatbot_button.setObjectName(
-            "chatbotButton"
-        )
-
-        self.chatbot_button.setFixedSize(
-            64,
-            64
-        )
-
-        self.chatbot_button.setCursor(
-            Qt.CursorShape.PointingHandCursor
-        )
-
-        self.chatbot_button.setToolTip(
-            "Ask FRIDAY"
-        )
-
-        self.chatbot_button.clicked.connect(
-            self.toggle_chatbot
-        )
-
-        self.chatbot_button.show()
-
-        # ==================================================
-        # STYLE
-        # ==================================================
+        self.camera_preview.setMinimumSize(165, 76)
+        self.camera_preview.setMaximumSize(280, 118)
+        self.camera_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.camera_preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        camera_layout.addWidget(self.camera_preview, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.gesture_status_label = QLabel("GESTURE CONTROL • OFF")
+        self.gesture_status_label.setObjectName("mutedText")
+        self.gesture_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        camera_layout.addWidget(self.gesture_status_label)
+        lower.addWidget(camera_card)
+        self.idle_layout.addLayout(lower)
+        self.workspace_stack.addWidget(self.idle_page)
+        main_col.addWidget(workspace, 1)
 
         self.setStyleSheet("""
-            QWidget {
-                background-color: #0b0f14;
-                color: #e8f0ff;
+            QWidget#dashboardRoot { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #DCEFF0, stop:0.48 #EEF3E5, stop:1 #F8E5D8); }
+            QWidget { color: #35565A; font-family: 'Segoe UI'; font-size: 10pt; }
+            QFrame#sidebar, QFrame#glassCard, QFrame#heroCard {
+                background-color: rgba(255, 253, 246, 226); border: 1px solid #D7E2D8; border-radius: 16px;
             }
-
-            QFrame#topArea {
-                background-color: #111720;
-                border: 1px solid #27313e;
-                border-radius: 16px;
-            }
-
-            QLabel {
-                background-color: transparent;
-                color: #e8f0ff;
-            }
-
-            QLabel#fridayTitle {
-                letter-spacing: 3px;
-            }
-
-            QLabel#cameraPreview {
-                background-color: #05080c;
-                border: 2px solid #344253;
-                border-radius: 16px;
-                color: #8997a8;
-                font-family: "Segoe UI";
-                font-size: 12px;
-                font-weight: bold;
-            }
-
-            QFrame#dock {
-                background-color: #141b24;
-                border: 1px solid #303a48;
-                border-radius: 24px;
-            }
-
-            QPushButton {
-                background-color: #1b2430;
-                color: #e8f0ff;
-                border: 1px solid #323d4c;
-                border-radius: 15px;
-                font-family: "Segoe UI";
-                font-size: 12px;
-                padding: 5px;
-            }
-
-            QPushButton:hover {
-                background-color: #273342;
-                border: 1px solid #566579;
-            }
-
-            QPushButton:pressed {
-                background-color: #303d4d;
-            }
-
-            QPushButton#chatbotButton {
-                background-color: #1b2430;
-                color: #ffffff;
-                border: 2px solid #6d8097;
-                border-radius: 32px;
-                font-family: "Segoe UI";
-                font-size: 24px;
-                font-weight: bold;
-                padding: 0px;
-            }
-
-            QPushButton#chatbotButton:hover {
-                background-color: #273342;
-                border: 2px solid #a8b6c7;
-            }
-
-            QPushButton#chatbotButton:pressed {
-                background-color: #303d4d;
-            }
+            QFrame#sidebar { background-color: rgba(255, 251, 240, 240); border-color: #D8DFCC; }
+            QFrame#heroCard { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 rgba(255, 255, 250, 238), stop:1 rgba(225, 242, 232, 226)); border-color: #C8DED5; }
+            QFrame#idleHero { background: transparent; border: none; }
+            QStackedWidget#workspaceStack { background: transparent; border: none; }
+            QLabel { background: transparent; color: #35565A; }
+            QLabel#brand { color: #376D68; font-family: 'Georgia'; font-size: 14pt; font-weight: bold; }
+            QLabel#eyebrow { color: #64856E; font-size: 9pt; font-weight: bold; }
+            QLabel#greeting { color: #31585A; font-family: 'Georgia'; font-size: 23pt; font-weight: 600; }
+            QLabel#mutedText, QLabel#sideNote { color: #71877A; }
+            QLabel#onlineLabel { color: #47876A; font-weight: bold; }
+            QLabel#heroTitle { color: #4C7771; font-family: 'Georgia'; font-size: 20pt; font-weight: 600; }
+            QPushButton { background-color: rgba(255, 255, 250, 238); color: #365D5E; border: 1px solid #D1DDD2; border-radius: 12px; padding: 11px 14px; font-size: 11pt; }
+            QPushButton:hover { background-color: #E5F1E6; border: 1px solid #9FC4AE; }
+            QPushButton:pressed { background-color: #D6E8D9; }
+            QPushButton#navButton { text-align: left; padding: 10px 11px; background: transparent; border-color: transparent; }
+            QPushButton#navButton:hover { background-color: #E8F1E5; border-color: #D4E1D1; }
+            QPushButton#navActive { text-align: left; padding: 10px 11px; background-color: #DCEBDD; border-color: #C5DCC9; color: #376D68; font-weight: bold; }
+            QLabel#cameraPreview { background-color: #DCEBE7; border: 1px solid #C4DAD2; border-radius: 11px; color: #607F79; font-size: 9pt; }
         """)
+        self.apply_responsive_layout()
 
-        # Position after UI has been created
-        self.position_chatbot_button()
+    def apply_responsive_layout(self):
+        width = max(self.width(), self.minimumWidth())
+        height = max(self.height(), self.minimumHeight())
+        compact = height < 780 or width < 1180
+
+        margin = 10 if compact else 16
+        self.root_layout.setContentsMargins(margin, margin, margin, margin)
+        self.root_layout.setSpacing(9 if compact else 13)
+        self.main_col.setSpacing(7 if compact else 11)
+        self.sidebar.setFixedWidth(170 if width < 1000 else 190 if compact else 204)
+        self.hero_layout.setContentsMargins(14, 5 if compact else 10, 14, 7 if compact else 12)
+        self.hero_layout.setSpacing(2 if compact else 4)
+
+        companion_height = max(180, min(300, int(height * 0.36)))
+        companion_width = min(316, int(companion_height * 1.05))
+        self.companion.setFixedSize(companion_width, companion_height)
+
+        for button in self.navigation_buttons.values():
+            nav_height = 34 if height < 620 else 44 if compact else 52
+            button.setMinimumHeight(nav_height)
+            button.setFont(QFont("Segoe UI", 10 if compact else 11, QFont.Weight.DemiBold))
+        self.camera_preview.setMinimumSize(150, 68 if compact else 92)
+        self.camera_preview.setMaximumHeight(94 if compact else 120)
+
+    def open_chatbot_from_nav(self):
+        self.toggle_chatbot()
+
+    def _set_active_navigation(self, name):
+        for button_name, button in self.navigation_buttons.items():
+            button.setObjectName("navActive" if button_name == name else "navButton")
+            button.style().unpolish(button)
+            button.style().polish(button)
+
+    def _show_workspace_page(self, page, navigation_name):
+        if self.workspace_stack.indexOf(page) == -1:
+            self.workspace_stack.addWidget(page)
+            return_home = getattr(page, "return_home_requested", None)
+            if return_home is not None:
+                return_home.connect(self.show_idle)
+
+        page.setMinimumSize(0, 0)
+        page.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        is_vision_page = page is self.vision_studio
+        if is_vision_page:
+            self.stop_gesture_control()
+        self.workspace_stack.setCurrentWidget(page)
+        page.show()
+        if not is_vision_page:
+            self.start_gesture_control()
+        self._set_active_navigation(navigation_name)
+
+    def show_idle(self):
+        self._show_workspace_page(self.idle_page, "Home")
 
     # ======================================================
     # PROFILE PHOTO
@@ -603,8 +555,8 @@ class Desktop(QWidget):
 
         self.profile_photo.setStyleSheet("""
             QLabel {
-                background-color: #1b2430;
-                border: 1px solid #394656;
+                background-color: #F0EEFF;
+                border: 1px solid #D8DDF5;
                 border-radius: 27px;
                 font-size: 25px;
             }
@@ -616,6 +568,13 @@ class Desktop(QWidget):
 
     def toggle_chatbot(self):
 
+        if (
+            self.chatbot is not None
+            and self.workspace_stack.currentWidget() is self.chatbot
+        ):
+            self.close_chatbot()
+            return
+
         if self.chatbot is None:
 
             self.chatbot = ChatbotPanel(
@@ -625,30 +584,7 @@ class Desktop(QWidget):
             self.chatbot.close_requested.connect(
                 self.close_chatbot
             )
-
-            self.chatbot.setParent(
-                self
-            )
-
-            self.chatbot.show()
-
-            self.position_chatbot()
-
-            self.chatbot.raise_()
-
-        else:
-
-            if self.chatbot.isVisible():
-
-                self.close_chatbot()
-
-            else:
-
-                self.chatbot.show()
-
-                self.position_chatbot()
-
-                self.chatbot.raise_()
+        self._show_workspace_page(self.chatbot, "JARVIS")
 
     # ======================================================
     # CLOSE CHATBOT
@@ -658,198 +594,85 @@ class Desktop(QWidget):
 
         if self.chatbot:
 
-            if hasattr(self.chatbot, "stop_all"):
-                self.chatbot.stop_all()
-
-            self.chatbot.hide()
+            self.chatbot.stop_all()
+        self.show_idle()
 
     # ======================================================
-    # POSITION CHATBOT PANEL
-    # ======================================================
-
-    def position_chatbot(self):
-
-        if self.chatbot is None:
-            return
-
-        margin = 20
-
-        panel_width = 340
-
-        panel_height = max(
-            300,
-            self.height() - 40
-        )
-
-        self.chatbot.setGeometry(
-            self.width() - panel_width - margin,
-            margin,
-            panel_width,
-            panel_height
-        )
-
-        self.chatbot.raise_()
-
-    # ======================================================
-    # POSITION CHATBOT BUTTON
-    # ======================================================
-
-    def position_chatbot_button(self):
-
-        if not hasattr(
-            self,
-            "chatbot_button"
-        ):
-            return
-
-        margin_right = 25
-        margin_bottom = 25
-
-        x = (
-            self.width()
-            - self.chatbot_button.width()
-            - margin_right
-        )
-
-        y = (
-            self.height()
-            - self.chatbot_button.height()
-            - margin_bottom
-        )
-
-        self.chatbot_button.move(
-            x,
-            y
-        )
-
-        self.chatbot_button.raise_()
-
     # ======================================================
     # GESTURE CONTROL
     # ======================================================
 
     def start_gesture_control(self):
-
         if self.gesture_worker is not None:
             return
 
-        self.gesture_status_label.setText(
-            "GESTURE CONTROL • STARTING"
-        )
-
+        self.gesture_status_label.setText("GESTURE CONTROL • STARTING")
+        self.camera_preview.setText("CAMERA STARTING…")
         self.gesture_worker = DesktopGestureWorker()
-
-        self.gesture_worker.gesture_detected.connect(
-            self.handle_gesture
-        )
-
-        self.gesture_worker.camera_frame.connect(
-            self.update_camera_preview
-        )
-
-        self.gesture_worker.error_occurred.connect(
-            self.handle_gesture_error
-        )
-
+        self.gesture_worker.gesture_detected.connect(self.handle_gesture)
+        self.gesture_worker.camera_frame.connect(self.update_camera_preview)
+        self.gesture_worker.error_occurred.connect(self.handle_gesture_error)
         self.gesture_worker.start()
 
     def stop_gesture_control(self):
-
         if self.gesture_worker is None:
             return
 
         worker = self.gesture_worker
-
         self.gesture_worker = None
-
         worker.stop()
+        self.camera_preview.clear()
+        self.camera_preview.setText("CAMERA RESERVED FOR VISION STUDIO")
+        self.update_gesture_status("GESTURE CONTROL • PAUSED")
 
-        if self.camera_preview is not None:
-            self.camera_preview.clear()
-            self.camera_preview.setText(
-                "CAMERA RESERVED\nFOR VISION STUDIO"
-            )
-
-        if self.gesture_status_label is not None:
-            self.gesture_status_label.setText(
-                "GESTURE CONTROL • PAUSED"
-            )
-
-    def start_camera_ownership_monitor(self):
-
-        self.camera_ownership_timer = QTimer(self)
-
-        self.camera_ownership_timer.timeout.connect(
-            self.monitor_camera_ownership
+    def update_camera_preview(self, frame):
+        height, width, channels = frame.shape
+        image = QImage(
+            frame.data,
+            width,
+            height,
+            channels * width,
+            QImage.Format.Format_RGB888
+        ).copy()
+        pixmap = QPixmap.fromImage(image).scaled(
+            self.camera_preview.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
         )
+        self.camera_preview.setPixmap(pixmap)
 
-        self.camera_ownership_timer.start(300)
+    def handle_gesture_error(self, message):
+        self.update_gesture_status("GESTURE CONTROL • CAMERA ERROR")
+        self.camera_preview.setText(f"CAMERA ERROR\n{message}")
+        print("FRIDAY gesture error:", message)
 
-    def monitor_camera_ownership(self):
-
-        # Vision Studio is the only FRIDAY child application
-        # currently expected to use the physical camera.
-        if self.vision_studio is not None:
-
-            if self.vision_studio.isVisible():
-
-                if self.gesture_worker is not None:
-                    self.stop_gesture_control()
-
-                return
-
-            # Vision Studio was closed/hidden. Give the camera
-            # back to the gesture engine.
-            if (
-                self.gesture_worker is None
-                and not self.isHidden()
-            ):
-                self.start_gesture_control()
+    def update_gesture_status(self, message):
+        self.gesture_status_label.setText(message)
 
     def handle_gesture(self, gesture):
 
-        if self.gesture_status_label is not None:
-            self.gesture_status_label.setText(
-                f"GESTURE CONTROL • {gesture.replace('_', ' ')}"
-            )
+        if self.gesture_lab is not None:
+            self.gesture_lab.set_gesture_name(gesture)
+        self.update_gesture_status(
+            f"GESTURE CONTROL • {gesture.replace('_', ' ')}"
+        )
 
         if gesture == "TWO_FINGER":
             self.toggle_chatbot()
 
         elif gesture == "OPEN_PALM":
-            self.close_active_application()
+            try:
+                pyautogui.click()
+                self.update_gesture_status("OPEN PALM • TARGET ACTIVATED")
+            except Exception as error:
+                self.update_gesture_status("OPEN PALM • CLICK FAILED")
+                print("FRIDAY open-palm action error:", error)
 
         elif gesture == "FIST":
             self.close_active_application()
 
-        elif gesture == "THUMBS_UP":
-            self.activate_thumbs_up_command()
-
         elif gesture == "TWO_THUMBS_UP":
             self.take_screenshot()
-
-    def activate_thumbs_up_command(self):
-        phrase = "Hey Awesome!, Ready to shine? 1 2 3 Go!!!"
-
-        if self.gesture_status_label is not None:
-            self.gesture_status_label.setText(
-                "GESTURE CONTROL • TYPING MESSAGE"
-            )
-
-        try:
-            pyautogui.write(phrase, interval=0.06)
-            self.open_media_controller()
-
-            if self.gesture_status_label is not None:
-                self.gesture_status_label.setText(
-                    "GESTURE CONTROL • MESSAGE TYPED ✓"
-                )
-        except Exception as error:
-            if self.gesture_status_label is not None:
-                self.gesture_status_label.setText(
-                    "GESTURE CONTROL • ACTION FAILED"
-                )
-            print("FRIDAY thumbs-up action error:", error)
 
     def take_screenshot(self):
         from datetime import datetime
@@ -866,68 +689,15 @@ class Desktop(QWidget):
         try:
             pyautogui.screenshot().save(screenshot_path)
 
-            if self.gesture_status_label is not None:
-                self.gesture_status_label.setText(
-                    "GESTURE CONTROL • SCREENSHOT SAVED ✓"
-                )
+            self.update_gesture_status("GESTURE CONTROL • SCREENSHOT SAVED ✓")
 
             print("FRIDAY screenshot saved:", screenshot_path)
         except Exception as error:
-            if self.gesture_status_label is not None:
-                self.gesture_status_label.setText(
-                    "GESTURE CONTROL • SCREENSHOT FAILED"
-                )
+            self.update_gesture_status("GESTURE CONTROL • SCREENSHOT FAILED")
             print("FRIDAY screenshot error:", error)
 
-    def update_camera_preview(self, frame):
-
-        if self.camera_preview is None:
-            return
-
-        height, width, channels = frame.shape
-        bytes_per_line = channels * width
-
-        image = QImage(
-            frame.data,
-            width,
-            height,
-            bytes_per_line,
-            QImage.Format.Format_RGB888
-        ).copy()
-
-        pixmap = QPixmap.fromImage(image)
-
-        pixmap = pixmap.scaled(
-            self.camera_preview.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
-        )
-
-        self.camera_preview.setPixmap(pixmap)
-
-    def handle_gesture_error(self, message):
-
-        if self.gesture_status_label is not None:
-            self.gesture_status_label.setText(
-                "GESTURE CONTROL • CAMERA ERROR"
-            )
-
-        print("FRIDAY gesture error:", message)
-
     def close_active_application(self):
-
-        windows = [
-            self.system_panel,
-            self.vision_studio,
-            self.media_controller,
-            self.tools,
-            self.calendar
-        ]
-
-        for window in windows:
-            if window is not None and window.isVisible():
-                window.close()
-                return
+        self.show_idle()
 
     # ======================================================
     # SYSTEM MONITOR
@@ -974,54 +744,49 @@ class Desktop(QWidget):
         if self.system_panel is None:
 
             self.system_panel = SystemPanel()
-
-        self.system_panel.show()
-        self.system_panel.raise_()
-        self.system_panel.activateWindow()
+        self._show_workspace_page(self.system_panel, "System")
 
     def open_vision_studio(self):
-
-        # Vision Studio needs exclusive access to the webcam.
-        # Release FRIDAY's gesture camera BEFORE creating it.
-        self.stop_gesture_control()
-
         if self.vision_studio is None:
 
             self.vision_studio = VisionStudio()
+        self._show_workspace_page(self.vision_studio, "Vision Studio")
 
-        self.vision_studio.show()
-        self.vision_studio.raise_()
-        self.vision_studio.activateWindow()
+    def open_gesture_lab(self):
+        if self.gesture_lab is None:
+            self.gesture_lab = GestureLabPanel()
+        self._show_workspace_page(self.gesture_lab, "Gesture Lab")
 
     def open_media_controller(self):
 
         if self.media_controller is None:
 
             self.media_controller = MediaController()
-
-        self.media_controller.show()
-        self.media_controller.raise_()
-        self.media_controller.activateWindow()
+        self._show_workspace_page(self.media_controller, "Media")
 
     def open_tools(self):
 
         if self.tools is None:
 
             self.tools = Tools()
-
-        self.tools.show()
-        self.tools.raise_()
-        self.tools.activateWindow()
+        self._show_workspace_page(self.tools, "Tools")
 
     def open_calendar(self):
 
         if self.calendar is None:
 
             self.calendar = Calendar()
+        self._show_workspace_page(self.calendar, "Calendar")
 
-        self.calendar.show()
-        self.calendar.raise_()
-        self.calendar.activateWindow()
+    def open_notes(self):
+        if not hasattr(self, "notes_panel"):
+            self.notes_panel = NotesPanel()
+        self._show_workspace_page(self.notes_panel, "Notes")
+
+    def open_jarvis(self):
+        if not hasattr(self, "jarvis_panel"):
+            self.jarvis_panel = JarvisPanel()
+        self._show_workspace_page(self.jarvis_panel, "JARVIS")
 
     # ======================================================
     # RESIZE
@@ -1033,14 +798,10 @@ class Desktop(QWidget):
             event
         )
 
-        self.position_chatbot_button()
+        self.apply_responsive_layout()
 
-        if (
-            self.chatbot is not None
-            and self.chatbot.isVisible()
-        ):
-
-            self.position_chatbot()
+        if hasattr(self, "workspace_stack"):
+            self.workspace_stack.updateGeometry()
 
     # ======================================================
     # KEYBOARD
@@ -1076,12 +837,7 @@ class Desktop(QWidget):
 
     def closeEvent(self, event):
 
-        if self.camera_ownership_timer is not None:
-            self.camera_ownership_timer.stop()
-
-        if self.gesture_worker is not None:
-            self.gesture_worker.stop()
-            self.gesture_worker = None
+        self.stop_gesture_control()
 
         if hasattr(
             self,
@@ -1098,6 +854,10 @@ class Desktop(QWidget):
         if self.vision_studio:
 
             self.vision_studio.close()
+
+        if self.gesture_lab:
+
+            self.gesture_lab.close()
 
         if self.media_controller:
 

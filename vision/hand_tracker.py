@@ -1,4 +1,5 @@
 import os
+import time
 import cv2
 import mediapipe as mp
 
@@ -28,7 +29,7 @@ class HandTracker:
 
         options = vision.HandLandmarkerOptions(
             base_options=base_options,
-            running_mode=vision.RunningMode.IMAGE,
+            running_mode=vision.RunningMode.VIDEO,
             num_hands=num_hands,
             min_hand_detection_confidence=min_hand_detection_confidence,
             min_hand_presence_confidence=min_hand_presence_confidence,
@@ -38,8 +39,9 @@ class HandTracker:
         self.landmarker = vision.HandLandmarker.create_from_options(
             options
         )
+        self._last_timestamp_ms = -1
 
-    def process(self, frame):
+    def process(self, frame, timestamp_ms=None):
 
         rgb_frame = cv2.cvtColor(
             frame,
@@ -51,8 +53,18 @@ class HandTracker:
             data=rgb_frame
         )
 
-        result = self.landmarker.detect(
-            mp_image
+        if timestamp_ms is None:
+            timestamp_ms = time.monotonic_ns() // 1_000_000
+
+        timestamp_ms = max(
+            int(timestamp_ms),
+            self._last_timestamp_ms + 1
+        )
+        self._last_timestamp_ms = timestamp_ms
+
+        result = self.landmarker.detect_for_video(
+            mp_image,
+            timestamp_ms
         )
 
         return result

@@ -3,7 +3,8 @@ import os
 
 from PyQt6.QtCore import (
     Qt,
-    QDate
+    QDate,
+    pyqtSignal
 )
 
 from PyQt6.QtGui import (
@@ -26,9 +27,11 @@ from PyQt6.QtWidgets import (
     QTimeEdit,
     QMessageBox
 )
+from dashboard.theme import apply_cloud_garden_theme
 
 
 class Calendar(QWidget):
+    return_home_requested = pyqtSignal()
 
     def __init__(self):
 
@@ -39,8 +42,8 @@ class Calendar(QWidget):
         )
 
         self.setMinimumSize(
-            1000,
-            650
+            1050,
+            700
         )
 
         # --------------------------------
@@ -221,10 +224,10 @@ class Calendar(QWidget):
         right_layout = QVBoxLayout()
 
         right_layout.setContentsMargins(
-            20,
-            20,
-            20,
-            20
+            14,
+            14,
+            14,
+            14
         )
 
         # --------------------------------
@@ -276,7 +279,11 @@ class Calendar(QWidget):
         self.event_list = QListWidget()
 
         self.event_list.setMinimumHeight(
-            180
+            90
+        )
+
+        self.event_list.setMaximumHeight(
+            130
         )
 
         right_layout.addWidget(
@@ -338,7 +345,7 @@ class Calendar(QWidget):
         )
 
         self.event_notes.setMaximumHeight(
-            90
+            64
         )
 
         right_layout.addWidget(
@@ -412,7 +419,7 @@ class Calendar(QWidget):
         )
 
         close_button.clicked.connect(
-            self.close
+            self.return_home_requested.emit
         )
 
         main_layout.addWidget(
@@ -542,6 +549,7 @@ class Calendar(QWidget):
                 background-color: #303d4d;
             }
         """)
+        apply_cloud_garden_theme(self)
 
     # ==================================================
     # EVENT HANDLING

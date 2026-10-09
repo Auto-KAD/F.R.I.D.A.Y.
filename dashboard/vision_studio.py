@@ -1,20 +1,23 @@
 import cv2
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QImage, QPixmap
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
+    QGridLayout,
     QLabel,
     QPushButton,
     QFrame
 )
 
 from vision.camera import Camera
+from dashboard.theme import apply_cloud_garden_theme
 
 
 class VisionStudio(QWidget):
+    return_home_requested = pyqtSignal()
 
     def __init__(self):
 
@@ -24,10 +27,7 @@ class VisionStudio(QWidget):
             "FRIDAY — Vision Studio"
         )
 
-        self.setMinimumSize(
-            1100,
-            700
-        )
+        self.setMinimumSize(0, 0)
 
         self.camera = None
 
@@ -37,8 +37,6 @@ class VisionStudio(QWidget):
         self.previous_time = cv2.getTickCount()
 
         self.setup_ui()
-
-        self.start_camera()
 
     # --------------------------------
     # UI
@@ -124,14 +122,15 @@ class VisionStudio(QWidget):
         self.camera_label = QLabel(
             "Initializing camera..."
         )
+        self.camera_label.setObjectName("cameraPreview")
 
         self.camera_label.setAlignment(
             Qt.AlignmentFlag.AlignCenter
         )
 
         self.camera_label.setMinimumSize(
-            700,
-            450
+            480,
+            310
         )
 
         camera_layout.addWidget(
@@ -156,6 +155,7 @@ class VisionStudio(QWidget):
         controls_frame.setObjectName(
             "controlsFrame"
         )
+        controls_frame.setMinimumWidth(320)
 
         controls_layout = QVBoxLayout()
 
@@ -197,15 +197,17 @@ class VisionStudio(QWidget):
             "NEGATIVE"
         ]
 
-        for mode in modes:
+        mode_grid = QGridLayout()
+        mode_grid.setHorizontalSpacing(8)
+        mode_grid.setVerticalSpacing(8)
+
+        for index, mode in enumerate(modes):
 
             button = QPushButton(
                 mode
             )
 
-            button.setFixedHeight(
-                40
-            )
+            button.setMinimumHeight(52)
 
             button.setCursor(
                 Qt.CursorShape.PointingHandCursor
@@ -217,9 +219,9 @@ class VisionStudio(QWidget):
                 self.set_mode(selected_mode)
             )
 
-            controls_layout.addWidget(
-                button
-            )
+            mode_grid.addWidget(button, index // 2, index % 2)
+
+        controls_layout.addLayout(mode_grid)
 
         controls_layout.addStretch()
 
@@ -228,7 +230,7 @@ class VisionStudio(QWidget):
         )
 
         capture_button.setFixedHeight(
-            42
+            48
         )
 
         capture_button.clicked.connect(
@@ -244,11 +246,11 @@ class VisionStudio(QWidget):
         )
 
         close_button.setFixedHeight(
-            42
+            48
         )
 
         close_button.clicked.connect(
-            self.close
+            self.return_home_requested.emit
         )
 
         controls_layout.addWidget(
@@ -326,48 +328,10 @@ class VisionStudio(QWidget):
         # STYLE
         # --------------------------------
 
-        self.setStyleSheet("""
-            QWidget {
-                background-color: #0b0f14;
-                color: #e8f0ff;
-            }
-
-            QFrame#cameraFrame {
-                background-color: #05080c;
-                border: 1px solid #303a48;
-                border-radius: 16px;
-            }
-
-            QFrame#controlsFrame {
-                background-color: #111720;
-                border: 1px solid #27313e;
-                border-radius: 16px;
-            }
-
-            QFrame#infoFrame {
-                background-color: #141b24;
-                border: 1px solid #303a48;
-                border-radius: 12px;
-            }
-
-            QPushButton {
-                background-color: #1b2430;
-                color: #e8f0ff;
-                border: 1px solid #323d4c;
-                border-radius: 10px;
-                font-family: "Segoe UI";
-                font-size: 11px;
-                padding: 6px;
-            }
-
-            QPushButton:hover {
-                background-color: #273342;
-                border: 1px solid #566579;
-            }
-
-            QPushButton:pressed {
-                background-color: #303d4d;
-            }
+        apply_cloud_garden_theme(self, """
+            QFrame#cameraFrame { background-color: #DCEBE7; }
+            QFrame#controlsFrame, QFrame#infoFrame { background-color: rgba(255, 253, 246, 238); }
+            QLabel#cameraPreview { background-color: #DCEBE7; border-radius: 12px; }
         """)
 
     # --------------------------------
@@ -375,6 +339,9 @@ class VisionStudio(QWidget):
     # --------------------------------
 
     def start_camera(self):
+
+        if self.camera is not None:
+            return
 
         try:
 
@@ -397,6 +364,22 @@ class VisionStudio(QWidget):
         self.timer.start(
             30
         )
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.start_camera()
+
+    def hideEvent(self, event):
+        self.stop_camera()
+        super().hideEvent(event)
+
+    def stop_camera(self):
+        if hasattr(self, "timer"):
+            self.timer.stop()
+            del self.timer
+        if self.camera is not None:
+            self.camera.release()
+            self.camera = None
 
     # --------------------------------
     # SET PROCESSING MODE
@@ -427,9 +410,7 @@ class VisionStudio(QWidget):
         if frame is None:
             return
 
-        processed_frame = self.apply_processing(
-            frame
-        )
+        processed_frame = self.apply_processing(frame)
 
         self.display_frame(
             processed_frame
@@ -717,5 +698,6 @@ class VisionStudio(QWidget):
         if self.camera is not None:
 
             self.camera.release()
+            self.camera = None
 
         event.accept()
