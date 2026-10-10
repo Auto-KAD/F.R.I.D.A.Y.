@@ -456,7 +456,7 @@ class Desktop(QWidget):
         self.camera_preview.setMaximumHeight(94 if compact else 120)
 
     def open_chatbot_from_nav(self):
-        self.toggle_chatbot()
+        self.open_chatbot()
 
     def _set_active_navigation(self, name):
         for button_name, button in self.navigation_buttons.items():
@@ -599,6 +599,12 @@ class Desktop(QWidget):
     # CHATBOT TOGGLE
     # ======================================================
 
+    def open_chatbot(self):
+        if self.chatbot is None:
+            self.chatbot = ChatbotPanel(self.username)
+            self.chatbot.close_requested.connect(self.close_chatbot)
+        self._show_workspace_page(self.chatbot, None)
+
     def toggle_chatbot(self):
 
         if (
@@ -608,16 +614,7 @@ class Desktop(QWidget):
             self.close_chatbot()
             return
 
-        if self.chatbot is None:
-
-            self.chatbot = ChatbotPanel(
-                self.username
-            )
-
-            self.chatbot.close_requested.connect(
-                self.close_chatbot
-            )
-        self._show_workspace_page(self.chatbot, "JARVIS")
+        self.open_chatbot()
 
     # ======================================================
     # CLOSE CHATBOT
