@@ -19,7 +19,7 @@ __pycache__/
 # ==================================================
 
 # Face recognition training data
-data/faces/
+data/
 
 # Trained face recognition model
 data/face_model.yml
