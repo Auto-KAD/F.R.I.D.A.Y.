@@ -1,6 +1,16 @@
+## 👥 Team Members
+
+F.R.I.D.A.Y. is developed collaboratively by:
+
+| Team Member | GitHub Profile |
+|---|---|
+| Khwaish Verma | [@KhwaishVerma](https://github.com/KhwaishVerma) |
+| Anshul Pathak | [@DeCleamo](https://github.com/decleamo) |
+| Devi Ratan Singh | [@Devi Ratan Singh Charan](https://github.com/ratansingh322004-dotcom) |
+
 # F.R.I.D.A.Y.
 
-F.R.I.D.A.Y. is a Python desktop assistant with face-authenticated sign-in, a PyQt6 dashboard, hand-gesture controls, computer-vision tools, and an AI chat panel. The repository also contains **Mark LV**, a separate voice-first assistant that can be launched from FRIDAY.
+F.R.I.D.A.Y. is a Python desktop assistant with face-authenticated sign-in, a PyQt6 dashboard, hand-gesture controls, computer-vision tools, and an AI chat panel. The repository also contains **Mark LIV**, a separate voice-first assistant that can be launched from FRIDAY.
 
 ## Features
 
@@ -10,7 +20,7 @@ F.R.I.D.A.Y. is a Python desktop assistant with face-authenticated sign-in, a Py
 - Vision Studio and Gesture Lab for camera-based features and gesture feedback.
 - Air piano, guitar, and tabla experiences using hand tracking.
 - FRIDAY chat with text and voice input, Gemini responses, and spoken narration.
-- Optional Mark LV assistant, launched separately from FRIDAY.
+- Optional Mark LIV assistant, launched separately from FRIDAY.
 
 ## Requirements
 
@@ -81,23 +91,23 @@ The desktop gesture worker uses the webcam while available. Camera-based panels 
 | Fist | Close the active application |
 | Two thumbs up | Save a screenshot under `data/screenshots/` |
 
-## Mark LV (Optional)
+## Mark LIV (Optional)
 
-The **JARVIS** sidebar button launches Mark LV as a separate fullscreen application and closes the FRIDAY window. To install its additional dependencies, activate the same virtual environment and run its setup script:
+The **JARVIS** sidebar button launches Mark LIV as a separate fullscreen application and closes the FRIDAY window. To install its additional dependencies, activate the same virtual environment and run its setup script:
 
 ```powershell
-cd Mark-LV-main
+cd Mark-LIV-main
 python setup.py
 cd ..
 ```
 
-On first launch, Mark LV asks for its Gemini API key and operating system in its setup screen. Its settings are stored separately under `Mark-LV-main/config/`.
+On first launch, Mark LIV asks for its Gemini API key and operating system in its setup screen. Its settings are stored separately under `Mark-LIV-main/config/`.
 
 ## Local Data And Privacy
 
 FRIDAY stores face images, the trained face model, screenshots, notes, and calendar data under `data/`. This directory is ignored by Git and is not included in the repository. Back up any local data you want to keep. API keys and personal face data should not be committed.
 
-Camera frames are used by the local face and gesture features. Chat prompts are sent to Google Gemini when you use FRIDAY chat; Mark LV has its own Gemini integration and configuration.
+Camera frames are used by the local face and gesture features. Chat prompts are sent to Google Gemini when you use FRIDAY chat; Mark LIV has its own Gemini integration and configuration.
 
 ## Project Layout
 
@@ -108,7 +118,7 @@ vision/           Camera, hand tracking, gestures, and vision logic
 instruments/      Air instrument implementations and model assets
 models/           Hand-landmarker model
 data/             Local face data, model, notes, calendar, and screenshots
-Mark-LV-main/     Separate Mark LV assistant application
+Mark-LIV-main/     Separate Mark LIV assistant application
 main.py           FRIDAY application entry point
 requirements.txt  FRIDAY Python dependencies
 ```
