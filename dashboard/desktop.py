@@ -25,6 +25,7 @@ from dashboard.chatbot import ChatbotPanel
 from dashboard.jarvis import JarvisPanel
 from dashboard.notes import NotesPanel
 from dashboard.musical_instruments import MusicalInstrumentsPanel
+from dashboard.notification_toast import NotificationToast
 from vision.desktop_gesture_worker import DesktopGestureWorker
 
 
@@ -202,6 +203,7 @@ class Desktop(QWidget):
         super().__init__()
 
         self.username = username
+        self._active_toast = None
 
         # ==================================================
         # APPLICATION WINDOWS
@@ -711,20 +713,41 @@ class Desktop(QWidget):
         os.makedirs(screenshot_directory, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"FRIDAY_{timestamp}.png"
         screenshot_path = os.path.join(
             screenshot_directory,
-            f"FRIDAY_{timestamp}.png"
+            filename
         )
 
         try:
             pyautogui.screenshot().save(screenshot_path)
 
             self.update_gesture_status("GESTURE CONTROL • SCREENSHOT SAVED ✓")
-
             print("FRIDAY screenshot saved:", screenshot_path)
+
+            # Display on-screen toast notification
+            self.show_screenshot_notification(screenshot_path)
         except Exception as error:
             self.update_gesture_status("GESTURE CONTROL • SCREENSHOT FAILED")
             print("FRIDAY screenshot error:", error)
+
+    def show_screenshot_notification(self, screenshot_path):
+        try:
+            if hasattr(self, "_active_toast") and self._active_toast is not None:
+                try:
+                    self._active_toast.close()
+                except Exception:
+                    pass
+            filename = os.path.basename(screenshot_path)
+            self._active_toast = NotificationToast(
+                title="Screenshot Captured",
+                message=f"Saved: {filename}",
+                file_path=screenshot_path,
+                duration_ms=3000
+            )
+            self._active_toast.show_animated()
+        except Exception as toast_error:
+            print("FRIDAY notification toast error:", toast_error)
 
     def close_active_application(self):
         self.show_idle()

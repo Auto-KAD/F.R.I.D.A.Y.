@@ -92,7 +92,7 @@ graph TD
      | **OPEN PALM** | All 5 fingers extended | Left Click trigger |
      | **TWO FINGERS** | Index + Middle extended | Toggle Gemini AI Chat Panel |
      | **FIST** | All fingers curled | Close active workspace page (Return to Idle) |
-     | **TWO THUMBS UP** | Both hands thumbs up | Automated screenshot saved to `data/screenshots/` |
+     | **TWO THUMBS UP** | Both hands thumbs up | Automated screenshot saved to `data/screenshots/` with on-screen notification toast |
 
 ---
 
